@@ -1,140 +1,26 @@
-import { NextResponse } from 'next/server'
-import { Client } from '@notionhq/client'
-import * as XLSX from 'xlsx'
-
-const notion = new Client({ auth: process.env.NOTION_TOKEN })
-const LEADS_DB = process.env.NOTION_LEADS_DB_ID || '2efb0bbef153813a92a5c3e20c6130b2'
-const DRIVE_FILE_ID = process.env.GDRIVE_FILE_ID || ''
-
-async function fetchGiseleLeads() {
-  const results: any[] = []
-  let cursor: string | undefined
-
-  do {
-    const res = await notion.databases.query({
-      database_id: LEADS_DB,
-      start_cursor: cursor,
-      page_size: 100,
-      filter: {
-        or: [
-          { property: 'UTM_Source', rich_text: { contains: 'gisele' } },
-          { property: 'UTM_Source', rich_text: { contains: 'Gisele' } },
-          { property: 'UTM_Campaign', rich_text: { contains: 'gisele' } },
-        ]
-      }
-    })
-    results.push(...res.results)
-    cursor = res.has_more ? (res.next_cursor ?? undefined) : undefined
-  } while (cursor)
-
-  return results.map((page: any) => {
-    const p = page.properties
-    return {
-      id:      page.id,
-      handle:  p['@ do Tiktok']?.title?.[0]?.plain_text ?? '',
-      nome:    p['Nome do contato']?.rich_text?.[0]?.plain_text ?? '',
-      status:  p['Qual fase do agenciamento?']?.select?.name ?? '',
-      created: page.created_time,
-    }
-  })
-}
-
-async function fetchSalesFromDrive(): Promise<any[]> {
-  if (!DRIVE_FILE_ID) return []
-  try {
-    const url = `https://drive.google.com/uc?export=download&id=${DRIVE_FILE_ID}`
-    const res = await fetch(url)
-    if (!res.ok) return []
-    const buf  = await res.arrayBuffer()
-    const wb   = XLSX.read(buf, { type: 'array' })
-    const ws   = wb.Sheets[wb.SheetNames[0]]
-    const rows: any[] = XLSX.utils.sheet_to_json(ws, { header: 1 })
-    if (rows.length < 2) return []
-
-    const header = rows[0] as string[]
-    const idx = (name: string) => header.findIndex(h => String(h).includes(name))
-    const iNome = idx('criador')
-    const iGmv  = idx('GMV')
-    const iCom  = idx('Comiss')
-    const iData = idx('Data')
-
-    return rows.slice(1)
-      .filter(r => r[iData] && r[iData] !== 'Resumo')
-      .map(r => ({
-        creator:  String(r[iNome] ?? '').toLowerCase().replace('@','').trim(),
-        gmv:      parseBRL(r[iGmv]),
-        comissao: parseBRL(r[iCom]),
-      }))
-  } catch { return [] }
-}
-
-function parseBRL(v: any): number {
-  if (!v) return 0
-  const s = String(v).replace('R$','').replace(/\./g,'').replace(',','.').trim()
-  return parseFloat(s) || 0
-}
-
-function cleanHandle(h: string): string {
-  h = h.toLowerCase().trim()
-  const m = h.match(/tiktok\.com\/@([^/?&\s]+)/)
-  if (m) return m[1]
-  return h.replace('@','').split('?')[0].split('&')[0]
-    .replace(/^www\./,'').replace(/^tiktok\.com\//,'').trim()
-}
-
-function matchCreator(handle: string, sales: any[]): any | null {
-  const h = cleanHandle(handle)
-  let f = sales.find(s => s.creator === h)
-  if (!f && h.length >= 5) f = sales.find(s => s.creator.includes(h) || h.includes(s.creator))
-  if (!f && h.length >= 5) {
-    const hc = h.replace(/[^a-z]/g,'')
-    f = sales.find(s => s.creator.replace(/[^a-z]/g,'') === hc)
-  }
-  if (!f && h.length >= 8) f = sales.find(s => s.creator.startsWith(h.slice(0,8)))
-  return f ?? null
-}
-
-const INSIDE = new Set(['Agenciado','Convite Aceito'])
-
-export async function GET() {
-  try {
-    const [leads, sales] = await Promise.all([fetchGiseleLeads(), fetchSalesFromDrive()])
-
-    const enriched = leads.map(l => {
-      const inside = INSIDE.has(l.status)
-      const sale   = inside ? matchCreator(l.handle, sales) : null
-      return { ...l, gmv: sale?.gmv ?? 0, comissao: sale?.comissao ?? 0 }
-    })
-
-    const agenciados = enriched.filter(l => INSIDE.has(l.status))
-    const totalGmv   = agenciados.reduce((s,l) => s + l.gmv, 0)
-    const totalCom   = agenciados.reduce((s,l) => s + l.comissao, 0)
-    const giseleEarn = totalCom * 0.10 * 0.20
-
-    const byDay: Record<string, number> = {}
-    enriched.forEach(l => {
-      const d = l.created?.slice(0,10)
-      if (d) byDay[d] = (byDay[d] ?? 0) + 1
-    })
-
-    return NextResponse.json({
-      summary: {
-        total:      enriched.length,
-        agenciados: agenciados.length,
-        conversion: enriched.length ? Math.round(agenciados.length / enriched.length * 100) : 0,
-        totalGmv,
-        totalCom,
-        giseleEarn,
-        updatedAt:  new Date().toISOString(),
-      },
-      leads:  enriched.sort((a,b) => b.gmv - a.gmv),
-      byDay:  Object.entries(byDay)
-                .sort(([a],[b]) => a.localeCompare(b))
-                .map(([date,n]) => ({ date, n })),
-    }, {
-      headers: { 'Cache-Control': 's-maxage=300, stale-while-revalidate' }
-    })
-  } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 })
+{
+  "name": "amplify-super-afiliada-dashboard",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "next": "14.2.3",
+    "react": "^18",
+    "react-dom": "^18",
+    "@notionhq/client": "^2.2.15",
+    "xlsx": "^0.18.5",
+    "recharts": "^2.12.7"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "typescript": "^5",
+    "tailwindcss": "^3.4.1",
+    "postcss": "^8",
+    "autoprefixer": "^10"
   }
 }

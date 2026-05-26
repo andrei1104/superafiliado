@@ -1,69 +1,21 @@
-# Amplify Super Afiliada Dashboard
-
-Dashboard ao vivo para a Gisele acompanhar seus indicados e comissão em tempo real.
-
-## Stack
-- **Next.js 14** (App Router)
-- **Vercel** (deploy)
-- **Notion API** (leads)
-- **Google Drive** (XLSX de vendas do Partner Center)
-
----
-
-## Deploy no Vercel
-
-### 1. Subir para o GitHub
-```bash
-git init
-git add .
-git commit -m "feat: amplify dashboard"
-gh repo create amplify-dashboard --private --push
-```
-
-### 2. Conectar no Vercel
-1. Acesse [vercel.com](https://vercel.com) → Import Project
-2. Selecione o repositório
-3. Framework: **Next.js** (detectado automaticamente)
-
-### 3. Configurar variáveis de ambiente no Vercel
-Em Settings → Environment Variables, adicione:
-
-| Variável | Valor |
-|---|---|
-| `NOTION_TOKEN` | `secret_...` do seu integration |
-| `NOTION_LEADS_DB_ID` | `2efb0bbef153813a92a5c3e20c6130b2` |
-| `GDRIVE_FILE_ID` | ID do arquivo XLSX no Drive |
-
----
-
-## Notion — Criar Integration
-
-1. Acesse [notion.so/my-integrations](https://www.notion.so/my-integrations)
-2. **New integration** → nome: `Amplify Dashboard`
-3. Copie o token `secret_...`
-4. No database de Leads, clique em `...` → **Connections** → adicione a integração
-
----
-
-## Google Drive — Pegar o File ID
-
-1. Faça upload do XLSX do Partner Center na pasta do Drive
-2. Clique direito no arquivo → **Compartilhar** → "Qualquer pessoa com o link" → Visualizador
-3. Copie o link — o File ID é a parte entre `/d/` e `/view`:
-   `https://drive.google.com/file/d/**FILE_ID_AQUI**/view`
-
----
-
-## Atualizar o relatório
-
-Sempre que tiver um novo export do Partner Center:
-1. **Substitua o arquivo XLSX** na pasta do Drive (mesmo nome)
-2. O dashboard atualiza automaticamente em até 5 minutos (cache de 300s)
-3. Ou force atualizando a URL com `?t=timestamp`
-
----
-
-## Acesso
-
-O link do Vercel (`https://amplify-dashboard-xxx.vercel.app`) pode ser enviado diretamente para a Gisele.
-Para mais segurança, ative **Password Protection** nas configurações do Vercel (plano Pro).
+{
+  "compilerOptions": {
+    "target": "es5",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "incremental": true,
+    "plugins": [{ "name": "next" }],
+    "paths": { "@/*": ["./src/*"] }
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules"]
+}
