@@ -56,7 +56,14 @@ export default function Dashboard() {
   useEffect(() => {
     fetch('/api/data')
       .then(r => r.json())
-      .then(d => { setData(d); setLoading(false) })
+      .then(d => {
+        if (d.error) {
+          setError('Erro ao carregar dados: ' + d.error)
+        } else {
+          setData(d)
+        }
+        setLoading(false)
+      })
       .catch(() => { setError('Erro ao carregar dados.'); setLoading(false) })
   }, [])
 
