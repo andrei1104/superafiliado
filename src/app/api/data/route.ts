@@ -18,16 +18,11 @@ async function fetchLatestXlsxFromFolder(): Promise<any[]> {
 
     const listRes = await fetch(listUrl)
     if (!listRes.ok) {
-      const error = await listRes.json()
-      console.error('Drive list error:', error)
+      console.error('Drive list error:', await listRes.text())
       return []
     }
-
     const { files } = await listRes.json()
-    if (!files?.length) {
-      console.log('No Excel files found in Drive folder')
-      return []
-    }
+    if (!files?.length) return []
 
     const fileId = files[0].id
     console.log('Using Drive file:', files[0].name, fileId)
@@ -35,20 +30,13 @@ async function fetchLatestXlsxFromFolder(): Promise<any[]> {
     // Baixa o arquivo
     const dlUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${GDRIVE_KEY}`
     const dlRes = await fetch(dlUrl)
-    if (!dlRes.ok) {
-      console.error('Download error:', dlRes.status, dlRes.statusText)
-      return []
-    }
+    if (!dlRes.ok) return []
 
     const buf  = await dlRes.arrayBuffer()
     const wb   = XLSX.read(buf, { type: 'array' })
     const ws   = wb.Sheets[wb.SheetNames[0]]
     const rows: any[] = XLSX.utils.sheet_to_json(ws, { header: 1 })
-
-    if (rows.length < 2) {
-      console.log('Excel file has insufficient data')
-      return []
-    }
+    if (rows.length < 2) return []
 
     const header = rows[0] as string[]
     const idx    = (name: string) => header.findIndex(h => String(h).toLowerCase().includes(name.toLowerCase()))
@@ -178,9 +166,6 @@ export async function GET() {
     })
   } catch (e: any) {
     console.error('GET /api/data error:', e)
-    return NextResponse.json({ 
-      error: e.message,
-      details: process.env.NODE_ENV === 'development' ? e.stack : undefined
-    }, { status: 500 })
+    return NextResponse.json({ error: e.message }, { status: 500 })
   }
 }
