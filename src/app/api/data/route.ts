@@ -97,9 +97,9 @@ async function fetchGiseleLeads() {
     const p = page.properties
     return {
       id:      page.id,
-      handle:  p['@ do Tiktok']?.title?.[0]?.plain_text ?? '',
-      nome:    p['Nome do contato']?.rich_text?.[0]?.plain_text ?? '',
-      status:  p['Qual fase do agenciamento?']?.select?.name ?? '',
+      handle:  p['@ TikTok']?.rich_text?.[0]?.plain_text ?? '',
+      nome:    p['Novos Creators (Leads)']?.title?.[0]?.plain_text ?? '',
+      status:  p['Qual a fase do agenciamento']?.select?.name ?? '',
       created: page.created_time,
     }
   })
