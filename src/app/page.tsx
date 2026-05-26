@@ -183,7 +183,7 @@ export default function Dashboard() {
                   <tr key={l.id} style={{ borderTop:'1px solid #F3F4F6', background: i % 2 === 1 ? '#F9FAFB' : 'white' }}>
                     <td style={{ padding:'10px 14px', color:'#9CA3AF', fontWeight:600 }}>{i+1}</td>
                     <td style={{ padding:'10px 14px', fontWeight:600, color:'#0D0D1A', maxWidth:'160px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{l.nome || '—'}</td>
-                    <td style={{ padding:'10px 14px', color:'#6B6B8A', fontSize:'12px', maxWidth:'140px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{l.handle || '—'}</td>
+                    <td style={{ padding:'10px 14px', color:'#6B6B8A', fontSize:'12px', maxWidth:'140px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{l.handle ? l.handle.replace(/^@/, '') : '—'}</td>
                     <td style={{ padding:'10px 14px' }}>
                       <span style={{ fontSize:'11px', fontWeight:700, color: STATUS_COLOR[l.status] ?? '#9CA3AF',
                         background: (STATUS_COLOR[l.status] ?? '#9CA3AF') + '18', padding:'3px 8px', borderRadius:'100px' }}>

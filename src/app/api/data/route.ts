@@ -102,7 +102,9 @@ async function fetchGiseleLeads() {
       p['UTM_Source']?.rich_text?.[0]?.plain_text ??
       p['UTM_Campaign']?.rich_text?.[0]?.plain_text ?? ''
 
-    return { id: page.id, handle, nome, status, created: page.created_time, utm }
+    const finalStatus = status || 'Em Progresso'
+    const cleanHandle = handle.replace(/^@/, '').trim()
+    return { id: page.id, handle: cleanHandle, nome, status: finalStatus, created: page.created_time, utm }
   })
 
   const giseleLeads = allLeads.filter(l => l.utm.toLowerCase().includes('gisele'))
