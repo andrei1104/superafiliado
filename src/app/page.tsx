@@ -83,8 +83,7 @@ export default function Dashboard() {
       {/* HEADER */}
       <header style={{ background:'#1B3FE4', padding:'1.25rem 2rem', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
         <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
-          <div style={{ background:'#E4003A', borderRadius:'8px', width:'32px', height:'32px', display:'flex', alignItems:'center', justifyContent:'center', color:'white', fontWeight:900, fontSize:'14px' }}>▶</div>
-          <span style={{ color:'white', fontWeight:800, fontSize:'1.1rem', letterSpacing:'-0.01em' }}>Amplify <span style={{ opacity:.6, fontWeight:400 }}>club</span></span>
+          <img src='/amplify-logo.png' alt='Amplify' style={{ height:'38px', objectFit:'contain' }} />
         </div>
         <div style={{ textAlign:'right' }}>
           <div style={{ color:'rgba(255,255,255,.5)', fontSize:'11px', fontWeight:600, letterSpacing:'0.1em', textTransform:'uppercase' }}>Relatório Super Afiliada</div>

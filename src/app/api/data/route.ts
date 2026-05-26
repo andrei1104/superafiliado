@@ -3,75 +3,59 @@ import { Client } from '@notionhq/client'
 import * as XLSX from 'xlsx'
 
 const notion    = new Client({ auth: process.env.NOTION_TOKEN })
-const LEADS_DB  = process.env.NOTION_LEADS_DB_ID || '2efb0bbef153813a92a5c3e20c6130b2'
+const LEADS_DB  = process.env.NOTION_LEADS_DB_ID || '31ab0bbef15380a1ab97caa5c68e9813'
 const FOLDER_ID = process.env.GDRIVE_FOLDER_ID  || '1VeOK2-DTfnDbbRueHpKK-a5QkQtyP_Nj'
 const GDRIVE_KEY= process.env.GDRIVE_API_KEY    || ''
 
-// ── 1. Busca o XLSX mais recente da pasta do Drive ────────────
 async function fetchLatestXlsxFromFolder(): Promise<any[]> {
   try {
-    // Lista arquivos da pasta ordenados por data de modificação
     const listUrl = `https://www.googleapis.com/drive/v3/files?` +
       `q='${FOLDER_ID}'+in+parents+and+mimeType='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'` +
       `&orderBy=modifiedTime+desc&pageSize=1&fields=files(id,name,modifiedTime)` +
       `&key=${GDRIVE_KEY}`
 
     const listRes = await fetch(listUrl)
-    if (!listRes.ok) {
-      const error = await listRes.json()
-      console.error('Drive list error:', error)
-      return []
-    }
-
+    if (!listRes.ok) { console.error('Drive list error:', await listRes.json()); return [] }
     const { files } = await listRes.json()
-    if (!files?.length) {
-      console.log('No Excel files found in Drive folder')
-      return []
-    }
+    if (!files?.length) return []
 
     const fileId = files[0].id
-    console.log('Using Drive file:', files[0].name, fileId)
+    console.log('Using Drive file:', files[0].name)
 
-    // Baixa o arquivo
-    const dlUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${GDRIVE_KEY}`
-    const dlRes = await fetch(dlUrl)
-    if (!dlRes.ok) {
-      console.error('Download error:', dlRes.status, dlRes.statusText)
-      return []
-    }
+    const dlRes = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${GDRIVE_KEY}`)
+    if (!dlRes.ok) return []
 
     const buf  = await dlRes.arrayBuffer()
     const wb   = XLSX.read(buf, { type: 'array' })
     const ws   = wb.Sheets[wb.SheetNames[0]]
     const rows: any[] = XLSX.utils.sheet_to_json(ws, { header: 1 })
-
-    if (rows.length < 2) {
-      console.log('Excel file has insufficient data')
-      return []
-    }
+    if (rows.length < 2) return []
 
     const header = rows[0] as string[]
-    const idx    = (name: string) => header.findIndex(h => String(h).toLowerCase().includes(name.toLowerCase()))
-    const iNome  = idx('criador')
-    const iGmv   = idx('GMV de Afiliado')   !== -1 ? idx('GMV de Afiliado')  : idx('GMV')
-    const iCom   = idx('Comissão estimada') !== -1 ? idx('Comissão estimada'): idx('Comiss')
-    const iData  = idx('Data')
+    const idx = (name: string) =>
+      header.findIndex(h => String(h).toLowerCase().includes(name.toLowerCase()))
+
+    const iNome = idx('nome do criador')
+    const iGmv  = idx('gmv) de afiliado') !== -1 ? idx('gmv) de afiliado') : idx('gmv')
+    const iCom  = idx('comissão estimada') !== -1 ? idx('comissão estimada') : idx('comiss')
+    const iData = idx('data')
+
+    console.log('Excel col indexes - Nome:', iNome, 'GMV:', iGmv, 'Com:', iCom, 'Data:', iData)
 
     return rows.slice(1)
-      .filter(r => r[iData] && String(r[iData]) !== 'Resumo' && String(r[iData]) !== '--')
+      .filter(r => r[iData] && !['Resumo','--','-'].includes(String(r[iData])))
       .map(r => ({
-        creator:  String(r[iNome] ?? '').toLowerCase().replace('@','').replace(/\\_/g,'_').trim(),
+        creator:  String(r[iNome] ?? '').toLowerCase().replace('@','').trim(),
         gmv:      parseBRL(r[iGmv]),
         comissao: parseBRL(r[iCom]),
       }))
-      .filter(r => r.creator && r.creator !== '--')
+      .filter(r => r.creator && r.creator !== '-' && r.creator !== '--')
   } catch (e) {
     console.error('fetchDrive error:', e)
     return []
   }
 }
 
-// ── 2. Busca leads da Gisele no Notion ────────────────────────
 async function fetchGiseleLeads() {
   const results: any[] = []
   let cursor: string | undefined
@@ -81,31 +65,51 @@ async function fetchGiseleLeads() {
       database_id: LEADS_DB,
       start_cursor: cursor,
       page_size: 100,
-      filter: {
-        or: [
-          { property: 'UTM_Source', rich_text: { contains: 'gisele' } },
-          { property: 'UTM_Source', rich_text: { contains: 'Gisele' } },
-          { property: 'UTM_Campaign', rich_text: { contains: 'gisele' } },
-        ]
-      }
     })
     results.push(...res.results)
     cursor = res.has_more ? (res.next_cursor ?? undefined) : undefined
   } while (cursor)
 
-  return results.map((page: any) => {
+  // Log das propriedades do primeiro resultado para debug
+  if (results.length > 0) {
+    const props = Object.keys((results[0] as any).properties)
+    console.log('Notion properties:', props)
+  }
+
+  const allLeads = results.map((page: any) => {
     const p = page.properties
-    return {
-      id:      page.id,
-      handle:  p['@ TikTok']?.rich_text?.[0]?.plain_text ?? '',
-      nome:    p['Novos Creators (Leads)']?.title?.[0]?.plain_text ?? '',
-      status:  p['Qual a fase do agenciamento']?.select?.name ?? '',
-      created: page.created_time,
-    }
+    // Tenta vários nomes possíveis para cada campo
+    const handle =
+      p['@ TikTok']?.rich_text?.[0]?.plain_text ??
+      p['@TikTok']?.rich_text?.[0]?.plain_text ?? ''
+
+    const nome =
+      p['Novos Creators (Leads)']?.title?.[0]?.plain_text ??
+      p['Nome']?.title?.[0]?.plain_text ?? ''
+
+    const status =
+      p['Qual a fase do agenciamento']?.select?.name ??
+      p['Qual a fase do agenciamento?']?.select?.name ??
+      p['Status']?.select?.name ?? ''
+
+    const utm =
+      p['UTM_Source']?.rich_text?.[0]?.plain_text ??
+      p['UTM_Campaign']?.rich_text?.[0]?.plain_text ?? ''
+
+    return { id: page.id, handle, nome, status, created: page.created_time, utm }
   })
+
+  const giseleLeads = allLeads.filter(l => l.utm.toLowerCase().includes('gisele'))
+  console.log('Total leads:', allLeads.length, '| Gisele leads:', giseleLeads.length)
+  
+  // Log dos primeiros para ver status
+  giseleLeads.slice(0, 5).forEach(l => 
+    console.log('Lead:', l.handle, '| Status:', l.status, '| UTM:', l.utm)
+  )
+
+  return giseleLeads
 }
 
-// ── Helpers ───────────────────────────────────────────────────
 function parseBRL(v: any): number {
   if (!v) return 0
   const s = String(v).replace('R$','').replace(/\s/g,'').replace(/\./g,'').replace(',','.').trim()
@@ -116,8 +120,7 @@ function cleanHandle(h: string): string {
   h = h.toLowerCase().trim()
   const m = h.match(/tiktok\.com\/@([^/?&\s]+)/)
   if (m) return m[1]
-  return h.replace('@','').split('?')[0].split('&')[0]
-    .replace(/^www\./,'').replace(/^tiktok\.com\//,'').replace(/\\_/g,'_').trim()
+  return h.replace('@','').split('?')[0].split('&')[0].trim()
 }
 
 function matchCreator(handle: string, sales: any[]): any | null {
@@ -125,8 +128,8 @@ function matchCreator(handle: string, sales: any[]): any | null {
   let f = sales.find(s => s.creator === h)
   if (!f && h.length >= 5) f = sales.find(s => s.creator.includes(h) || h.includes(s.creator))
   if (!f && h.length >= 5) {
-    const hc = h.replace(/[^a-z]/g,'')
-    f = sales.find(s => s.creator.replace(/[^a-z]/g,'') === hc)
+    const hc = h.replace(/[^a-z0-9_]/g,'')
+    f = sales.find(s => s.creator.replace(/[^a-z0-9_]/g,'') === hc)
   }
   if (!f && h.length >= 8) f = sales.find(s => s.creator.startsWith(h.slice(0,8)))
   return f ?? null
@@ -134,7 +137,6 @@ function matchCreator(handle: string, sales: any[]): any | null {
 
 const INSIDE = new Set(['Agenciado','Convite Aceito'])
 
-// ── GET ───────────────────────────────────────────────────────
 export async function GET() {
   try {
     const [leads, sales] = await Promise.all([
@@ -164,23 +166,16 @@ export async function GET() {
         total:      enriched.length,
         agenciados: agenciados.length,
         conversion: enriched.length ? Math.round(agenciados.length / enriched.length * 100) : 0,
-        totalGmv,
-        totalCom,
-        giseleEarn,
+        totalGmv, totalCom, giseleEarn,
         updatedAt: new Date().toISOString(),
       },
       leads: enriched.sort((a,b) => b.gmv - a.gmv),
       byDay: Object.entries(byDay)
                .sort(([a],[b]) => a.localeCompare(b))
                .map(([date,n]) => ({ date, n })),
-    }, {
-      headers: { 'Cache-Control': 's-maxage=300, stale-while-revalidate' }
-    })
+    }, { headers: { 'Cache-Control': 's-maxage=300, stale-while-revalidate' } })
   } catch (e: any) {
     console.error('GET /api/data error:', e)
-    return NextResponse.json({ 
-      error: e.message,
-      details: process.env.NODE_ENV === 'development' ? e.stack : undefined
-    }, { status: 500 })
+    return NextResponse.json({ error: e.message }, { status: 500 })
   }
 }
