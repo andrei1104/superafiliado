@@ -87,10 +87,16 @@ async function fetchGiseleLeads() {
       p['Novos Creators (Leads)']?.title?.[0]?.plain_text ??
       p['Nome']?.title?.[0]?.plain_text ?? ''
 
+    const statusProp = p['Qual a fase do agenciamento']
+    // Rollup pode vir como array de selects
     const status =
-      p['Qual a fase do agenciamento']?.select?.name ??
-      p['Qual a fase do agenciamento?']?.select?.name ??
-      p['Status']?.select?.name ?? ''
+      statusProp?.select?.name ??
+      statusProp?.status?.name ??
+      statusProp?.rollup?.array?.[0]?.select?.name ??
+      statusProp?.rollup?.array?.[0]?.status?.name ??
+      statusProp?.rollup?.array?.[0]?.rich_text?.[0]?.plain_text ??
+      statusProp?.rich_text?.[0]?.plain_text ?? ''
+    if (!status && statusProp) console.log('Status raw:', JSON.stringify(statusProp))
 
     const utm =
       p['UTM_Source']?.rich_text?.[0]?.plain_text ??
