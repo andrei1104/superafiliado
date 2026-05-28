@@ -14,8 +14,8 @@ const AFFILIATES = Object.entries(USERS)
 
 const COLORS = ['#1B3FE4','#E4003A','#059669','#D97706','#7C3AED']
 
-type Metric = 'giseleEarn' | 'gmv' | 'comissao'
-const METRIC_LABELS: Record<Metric,string> = { giseleEarn:'Sua comissão', gmv:'GMV dos creators', comissao:'Comissão TikTok' }
+type Metric = 'giseleEarn' | 'gmv' | 'comissao' | 'amplifyGmv' | 'amplifyRevenue'
+const METRIC_LABELS: Record<string, string> = { giseleEarn:'Comissão afiliado', gmv:'GMV dos indicados', comissao:'Comissão TikTok', amplifyGmv:'GMV total Amplify', amplifyRevenue:'Receita Amplify' }
 
 export default function Admin() {
   const router = useRouter()
@@ -166,7 +166,7 @@ export default function Admin() {
                   style={{fontSize:'11px',fontWeight:700,padding:'4px 10px',borderRadius:'100px',border:'none',cursor:'pointer',
                     background: metric===m ? (selected ? selectedColor : '#0D1B8E') : '#F3F4F6',
                     color: metric===m ? 'white' : '#6B6B8A'}}>
-                  {METRIC_LABELS[m]}
+                  {(METRIC_LABELS as Record<string, string>)[m]}
                 </button>
               ))}
             </div>
@@ -184,7 +184,7 @@ export default function Admin() {
                   <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" vertical={false}/>
                   <XAxis dataKey="date" tickFormatter={fmtWeek} tick={{fontSize:10,fill:'#9CA3AF'}} axisLine={false} tickLine={false}/>
                   <YAxis hide/>
-                  <Tooltip formatter={(v:number)=>[fmtBRL(v),METRIC_LABELS[metric]]} labelFormatter={l=>fmtDate(l)}/>
+                  <Tooltip formatter={(v:number)=>[fmtBRL(v),(METRIC_LABELS as Record<string, string>)[metric]]} labelFormatter={l=>fmtDate(l)}/>
                   <Area type="monotone" dataKey={metric} stroke={selected ? selectedColor : '#0D1B8E'} strokeWidth={2.5} fill="url(#agrad)"
                     dot={{r:3,fill:selected ? selectedColor : '#0D1B8E',strokeWidth:0}}/>
                 </AreaChart>

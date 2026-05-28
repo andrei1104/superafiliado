@@ -107,28 +107,31 @@ async function fetchXlsxFromFolder(sinceDate: string) {
 
     const valid = processed.filter(Boolean) as any[]
 
-    // accumulatedSales: soma GMV de cada creator em TODOS os arquivos
-    // Isso dá o GMV acumulado total desde sinceDate
+    // Ordena por data final (weekEnd) desc — mais recente primeiro
+    const sortedDesc = valid.sort((a,b) => (b.weekEnd ?? '').localeCompare(a.weekEnd ?? ''))
+
+    // accumulatedSales = arquivo mais recente (data final maior)
+    // Os arquivos são CUMULATIVOS desde a data inicial, então o mais recente
+    // já contém o GMV total acumulado de todos os creators
+    const latestFile = sortedDesc[0]
     const accumulatedSales: Record<string, { gmv: number, comissao: number }> = {}
-    valid.forEach(v => {
-      v.sales.forEach((s: any) => {
-        if (!accumulatedSales[s.creator]) accumulatedSales[s.creator] = { gmv: 0, comissao: 0 }
-        accumulatedSales[s.creator].gmv      += s.gmv
-        accumulatedSales[s.creator].comissao += s.comissao
+    if (latestFile) {
+      latestFile.sales.forEach((s: any) => {
+        accumulatedSales[s.creator] = { gmv: s.gmv, comissao: s.comissao }
       })
-    })
+    }
 
-    // weeklySalesMap: GMV por semana (para gráfico evolutivo)
+    // weeklySalesMap: cada arquivo = um ponto no gráfico (cumulativo até aquela data)
     const weeklySalesMap: Record<string, any[]> = {}
-    valid.forEach(v => { if (v.weekEnd) weeklySalesMap[v.weekEnd] = v.sales })
+    sortedDesc.forEach(v => { if (v.weekEnd) weeklySalesMap[v.weekEnd] = v.sales })
 
-    // GMV e comissão total da Amplify por semana (para admin)
+    // GMV total Amplify por semana
     const weeklyAmplify: Record<string, { gmv: number, com: number }> = {}
-    valid.forEach(v => {
+    sortedDesc.forEach(v => {
       if (v.weekEnd) weeklyAmplify[v.weekEnd] = { gmv: v.amplifyGmv, com: v.amplifyCom }
     })
 
-    console.log(`Accumulated: ${Object.keys(accumulatedSales).length} creators across ${valid.length} files`)
+    console.log(`Latest file: ${latestFile?.weekEnd} | ${Object.keys(accumulatedSales).length} creators`)
     return { accumulatedSales, weeklySalesMap, weeklyAmplify }
   } catch (e) {
     console.error('fetchDrive error:', e)
