@@ -152,6 +152,16 @@ function cleanHandle(h: string): string {
   return h.replace('@','').split('?')[0].split('&')[0].trim()
 }
 
+function matchHandle(creator: string, handles: string[]): boolean {
+  return handles.some(h => {
+    const sc = creator
+    return sc === h ||
+      (h.length >= 5 && (sc.includes(h) || h.includes(sc))) ||
+      (h.length >= 5 && sc.replace(/[^a-z0-9_]/g,'') === h.replace(/[^a-z0-9_]/g,'')) ||
+      (h.length >= 8 && sc.startsWith(h.slice(0,8)))
+  })
+}
+
 function matchCreator(handle: string, accumulatedSales: Record<string, any>): any | null {
   const h = cleanHandle(handle)
   if (!h) return null
@@ -201,16 +211,6 @@ export async function GET(req: NextRequest) {
 
     // Gráfico semanal: só creators agenciados, GMV acumulado semana a semana
     const agenciadoHandles = agenciados.map(l => cleanHandle(l.handle)).filter(Boolean)
-
-    function matchHandle(creator: string, handles: string[]): boolean {
-      return handles.some(h => {
-        const sc = creator
-        return sc === h ||
-          (h.length >= 5 && (sc.includes(h) || h.includes(sc))) ||
-          (h.length >= 5 && sc.replace(/[^a-z0-9_]/g,'') === h.replace(/[^a-z0-9_]/g,'')) ||
-          (h.length >= 8 && sc.startsWith(h.slice(0,8)))
-      })
-    }
 
     const weeklyData = Object.entries(weeklySalesMap)
       .map(([date, weekSales]) => {
