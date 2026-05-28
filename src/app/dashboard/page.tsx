@@ -7,6 +7,7 @@ interface Lead { id:string; handle:string; nome:string; status:string; created:s
 interface Summary { total:number; agenciados:number; conversion:number; totalGmv:number; totalCom:number; giseleEarn:number; updatedAt:string }
 interface DayPoint { date:string; n:number }
 interface WeekPoint { date:string; gmv:number; comissao:number; giseleEarn:number }
+interface WeekPoint { date:string; gmv:number; comissao:number; giseleEarn:number }
 
 const STATUS_COLOR: Record<string,string> = {
   'Agenciado':'#059669','Convite Aceito':'#059669','Convite Enviado':'#D97706',
@@ -53,7 +54,7 @@ export default function Dashboard() {
   if (!user || loading) return <LoadingScreen />
   if (error || !data) return <ErrorScreen msg={error} />
 
-  const { summary:s, leads, byDay, weeklyData } = data
+  const { summary:s, leads, byDay, weeklyData, weeklyDataByCreator } = data
   const filtered = leads.filter(l => filter==='all' ? true : filter==='inside' ? INSIDE.has(l.status) : !INSIDE.has(l.status))
 
   const chartLabels: Record<string,string> = { gmv:'GMV dos creators', comissao:'Comissão TikTok', giseleEarn:'Sua comissão' }
@@ -130,18 +131,20 @@ export default function Dashboard() {
             <div>
               <div style={{fontSize:'10px',fontWeight:700,color:'#9CA3AF',letterSpacing:'0.1em',textTransform:'uppercase',marginBottom:'4px'}}>Cálculo da sua comissão</div>
               <div style={{fontSize:'12px',color:'#6B6B8A',lineHeight:1.8}}>
-                {fmtBRL(s.totalGmv)} × 10% = {fmtBRL(s.totalCom)}<br/>
-                {fmtBRL(s.totalCom)} × 10% × 20% = <strong style={{color:'#059669'}}>{fmtBRL(s.giseleEarn)}</strong>
+                Comissão estimada (planilha): <strong style={{color:'#0D0D1A'}}>{fmtBRL(s.totalCom)}</strong><br/>
+                {fmtBRL(s.totalCom)} × 10% (Amplify) × 20% = <strong style={{color:'#059669'}}>{fmtBRL(s.giseleEarn)}</strong>
               </div>
             </div>
           </div>
         </div>
 
         {/* EVOLUÇÃO SEMANAL */}
-        {weeklyData.length > 1 && (
-          <div style={{background:'white',borderRadius:'14px',padding:'1.25rem',marginBottom:'1rem',border:'1px solid #E5E7EB'}}>
+        {(weeklyData.length > 1 || (selectedCreator && weeklyDataByCreator[selectedCreator.handle]?.length > 1)) && (
+          <div style={{background:'white',borderRadius:'14px',padding:'1.25rem',marginBottom:'1rem',border:`1px solid ${selectedCreator ? '#1B3FE4' : '#E5E7EB'}`}}>
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'1rem',flexWrap:'wrap',gap:'8px'}}>
-              <div style={{fontSize:'11px',fontWeight:700,color:'#1B3FE4',letterSpacing:'0.05em',textTransform:'uppercase'}}>Evolução semanal</div>
+              <div style={{fontSize:'11px',fontWeight:700,color:'#1B3FE4',letterSpacing:'0.05em',textTransform:'uppercase'}}>
+                {selectedCreator ? `Evolução — ${selectedCreator.nome || selectedCreator.handle}` : 'Evolução semanal'}
+              </div>
               <div style={{display:'flex',gap:'6px'}}>
                 {(['giseleEarn','gmv','comissao'] as const).map(k => (
                   <button key={k} onClick={()=>setActiveChart(k)}
@@ -154,7 +157,7 @@ export default function Dashboard() {
               </div>
             </div>
             <ResponsiveContainer width="100%" height={180}>
-              <AreaChart data={weeklyData} margin={{top:4,right:4,bottom:0,left:0}}>
+              <AreaChart data={selectedCreator && weeklyDataByCreator[selectedCreator.handle] ? weeklyDataByCreator[selectedCreator.handle] : weeklyData} margin={{top:4,right:4,bottom:0,left:0}}>
                 <defs>
                   <linearGradient id="colorGrad" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor={chartColors[activeChart]} stopOpacity={0.15}/>
@@ -169,9 +172,11 @@ export default function Dashboard() {
               </AreaChart>
             </ResponsiveContainer>
             {/* Destaque semana mais recente vs anterior */}
-            {weeklyData.length >= 2 && (() => {
-              const last = weeklyData[weeklyData.length-1]
-              const prev = weeklyData[weeklyData.length-2]
+            {(() => {
+              const chartPoints = selectedCreator && weeklyDataByCreator[selectedCreator.handle] ? weeklyDataByCreator[selectedCreator.handle] : weeklyData
+              if (chartPoints.length < 2) return null
+              const last = chartPoints[chartPoints.length-1]
+              const prev = chartPoints[chartPoints.length-2]
               const diff = last[activeChart] - prev[activeChart]
               const pct  = prev[activeChart] ? (diff/prev[activeChart]*100) : 0
               return (

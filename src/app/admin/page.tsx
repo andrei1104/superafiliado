@@ -22,7 +22,7 @@ export default function Admin() {
   const [affiliatesData, setAffiliatesData] = useState<Record<string, any>>({})
   const [loading, setLoading]   = useState(true)
   const [selected, setSelected] = useState<string|null>(null)
-  const [metric, setMetric]     = useState<string>('amplifyGmv')
+  const [metric, setMetric]     = useState<string>('gmv')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [appliedDates, setAppliedDates] = useState({ start:'', end:'' })
@@ -94,7 +94,7 @@ export default function Admin() {
   const chartData = selected ? (selectedData?.weeklyData ?? []) : consolidatedChartData
   const availableMetrics: string[] = selected
     ? ['giseleEarn','gmv','comissao']
-    : ['amplifyGmv','amplifyRevenue','giseleEarn','gmv']
+    : ['gmv','giseleEarn','comissao','amplifyGmv','amplifyRevenue']
 
   // Ranking
   const ranking = AFFILIATES
@@ -143,7 +143,7 @@ export default function Admin() {
           <div className="g4">
             <Card label="Total indicações" value={String(totals.total)} sub="somados" color="#0D0D1A" bg="white"/>
             <Card label="Agenciados" value={String(totals.agenciados)} sub="somados" color="#1B3FE4" bg="white"/>
-            <Card label="GMV total" value={fmtBRL(totals.totalGmv)} sub="só dos indicados" color="#1B3FE4" bg="#EEF1FD"/>
+            <Card label="GMV indicados" value={fmtBRL(totals.totalGmv)} sub="creators de super afiliados" color="#1B3FE4" bg="#EEF1FD"/>
             <Card label="Comissões pagas" value={fmtBRL(totals.giseleEarn)} sub="total afiliados" color="#059669" bg="#ECFDF5"/>
           </div>
         </div>
@@ -290,8 +290,10 @@ export default function Admin() {
                   <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',marginBottom:'1rem'}}>
                     <MiniCard label="Indicações" value={String(selectedData.summary?.total ?? 0)} color="#0D0D1A"/>
                     <MiniCard label="Agenciados" value={String(selectedData.summary?.agenciados ?? 0)} color="#1B3FE4"/>
-                    <MiniCard label="GMV" value={fmtBRL(selectedData.summary?.totalGmv ?? 0)} color="#1B3FE4"/>
-                    <MiniCard label="Comissão" value={fmtBRL(selectedData.summary?.giseleEarn ?? 0)} color="#059669"/>
+                    <MiniCard label="GMV creators" value={fmtBRL(selectedData.summary?.totalGmv ?? 0)} color="#1B3FE4"/>
+                    <MiniCard label="Comissão TikTok" value={fmtBRL(selectedData.summary?.totalCom ?? 0)} color="#7C3AED"/>
+                    <MiniCard label="Receita Amplify" value={fmtBRL(selectedData.summary?.affiliateAmplifyRevenue ?? 0)} color="#0D1B8E"/>
+                    <MiniCard label="Comissão afiliado" value={fmtBRL(selectedData.summary?.giseleEarn ?? 0)} color="#059669"/>
                   </div>
                   {(selectedData.leads?.filter((l:any)=>l.gmv>0).length ?? 0) > 0 ? (
                     selectedData.leads.filter((l:any)=>l.gmv>0).slice(0,8).map((l:any,i:number,arr:any[]) => (

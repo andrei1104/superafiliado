@@ -224,11 +224,27 @@ export async function GET(req: NextRequest) {
       if (d && d >= firstDate && d <= lastDate) byDay[d] = (byDay[d] ?? 0) + 1
     })
 
+    // 8. Dados semanais por creator (para gráfico ao clicar no creator)
+    const weeklyDataByCreator: Record<string, { date: string, gmv: number, comissao: number, giseleEarn: number }[]> = {}
+    agenciados.forEach(lead => {
+      const h = cleanHandle(lead.handle)
+      const points = Object.entries(weeklySalesMap)
+        .map(([date, weekSales]) => {
+          const match = (weekSales as any[]).find(s => matchHandle(s.creator, [h]))
+          return { date, gmv: match?.gmv ?? 0, comissao: match?.comissao ?? 0, giseleEarn: (match?.comissao ?? 0) * 0.10 * 0.20 }
+        })
+        .sort((a,b) => a.date.localeCompare(b.date))
+      if (points.some(p => p.gmv > 0)) {
+        weeklyDataByCreator[lead.handle || h] = points
+      }
+    })
+
     return NextResponse.json({
       summary: {
         total: enriched.length, agenciados: agenciados.length,
         conversion: enriched.length ? Math.round(agenciados.length / enriched.length * 100) : 0,
         totalGmv, totalCom, giseleEarn,
+        affiliateAmplifyRevenue: totalCom * 0.10,
         amplifyTotalGmv, amplifyTotalRevenue,
         updatedAt: new Date().toISOString(),
         firstDate, lastDate,
@@ -237,6 +253,7 @@ export async function GET(req: NextRequest) {
       byDay:  Object.entries(byDay).sort(([a],[b]) => a.localeCompare(b)).map(([date,n]) => ({ date, n })),
       weeklyData,
       weeklyAmplifyData,
+      weeklyDataByCreator,
     }, { headers: { 'Cache-Control': 's-maxage=300, stale-while-revalidate' } })
   } catch (e: any) {
     console.error('GET /api/data error:', e)
