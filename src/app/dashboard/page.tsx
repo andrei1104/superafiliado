@@ -7,7 +7,6 @@ interface Lead { id:string; handle:string; nome:string; status:string; created:s
 interface Summary { total:number; agenciados:number; conversion:number; totalGmv:number; totalCom:number; giseleEarn:number; updatedAt:string }
 interface DayPoint { date:string; n:number }
 interface WeekPoint { date:string; gmv:number; comissao:number; giseleEarn:number }
-interface WeekPoint { date:string; gmv:number; comissao:number; giseleEarn:number }
 
 const STATUS_COLOR: Record<string,string> = {
   'Agenciado':'#059669','Convite Aceito':'#059669','Convite Enviado':'#D97706',
