@@ -36,7 +36,7 @@ export default function Dashboard() {
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [appliedDates, setAppliedDates] = useState({ start:'', end:'' })
-  const [activeChart, setActiveChart] = useState<'gmv'|'comissao'|'giseleEarn'>('giseleEarn')
+  const [activeChart, setActiveChart] = useState<'gmv'|'giseleEarn'>('giseleEarn')
 
   useEffect(() => {
     const stored = sessionStorage.getItem('amplify_user')
