@@ -137,29 +137,45 @@ export default function Admin() {
 
       <div className="cont">
 
-        {/* KPIs consolidados */}
-        <div style={{marginTop:'.5rem',marginBottom:'1rem'}}>
-          <div style={{fontSize:'10px',fontWeight:700,color:'#9CA3AF',letterSpacing:'0.1em',textTransform:'uppercase',marginBottom:'8px'}}>Consolidado — todos os super afiliados</div>
-          <div className="g4">
-            <Card label="Total indicações" value={String(totals.total)} sub="somados" color="#0D0D1A" bg="white"/>
-            <Card label="Agenciados" value={String(totals.agenciados)} sub="somados" color="#1B3FE4" bg="white"/>
-            <Card label="GMV indicados" value={fmtBRL(totals.totalGmv)} sub="creators de super afiliados" color="#1B3FE4" bg="#EEF1FD"/>
-            <Card label="Comissões pagas" value={fmtBRL(totals.giseleEarn)} sub="total afiliados" color="#059669" bg="#ECFDF5"/>
-          </div>
-        </div>
-
-        {/* KPIs Amplify */}
+        {/* LINHA 1: Amplify base completa */}
         {amplifyTotalGmv > 0 && (
-          <div style={{marginBottom:'1rem'}}>
-            <div style={{fontSize:'10px',fontWeight:700,color:'#9CA3AF',letterSpacing:'0.1em',textTransform:'uppercase',marginBottom:'8px'}}>Performance Amplify — todos os creators</div>
-            <div className="g4">
-              <Card label="GMV total da base" value={fmtBRL(amplifyTotalGmv)} sub="todos os creators" color="#0D1B8E" bg="white"/>
-              <Card label="Receita Amplify" value={fmtBRL(amplifyTotalRev)} sub="10% do GMV" color="#0D1B8E" bg="#EEF1FD"/>
-              <Card label="Comissões pagas" value={fmtBRL(totals.giseleEarn)} sub="para super afiliados" color="#E4003A" bg="#FFF1F3"/>
-              <Card label="Margem líquida" value={fmtBRL(amplifyTotalRev - totals.giseleEarn)} sub="receita − comissões" color="#059669" bg="#ECFDF5"/>
+          <div style={{marginTop:'.5rem',marginBottom:'1rem'}}>
+            <div style={{fontSize:'10px',fontWeight:700,color:'#9CA3AF',letterSpacing:'0.1em',textTransform:'uppercase',marginBottom:'8px'}}>Amplify — base total de creators</div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px'}}>
+              <Card label="GMV total da base" value={fmtBRL(amplifyTotalGmv)} sub="todos os creators agenciados" color="#0D1B8E" bg="white"/>
+              <Card label="Receita Amplify" value={fmtBRL(amplifyTotalRev)} sub="10% da comissão estimada" color="#0D1B8E" bg="#EEF1FD"/>
             </div>
           </div>
         )}
+
+        {/* LINHA 2: Consolidado super afiliados */}
+        <div style={{marginBottom:'1rem'}}>
+          <div style={{fontSize:'10px',fontWeight:700,color:'#9CA3AF',letterSpacing:'0.1em',textTransform:'uppercase',marginBottom:'8px'}}>Consolidado — creators indicados por super afiliados</div>
+          <div className="g4">
+            <Card label="Total indicações" value={String(totals.total)} sub="somados" color="#0D0D1A" bg="white"/>
+            <Card label="Agenciados" value={String(totals.agenciados)} sub="somados" color="#1B3FE4" bg="white"/>
+            <Card label="GMV indicados" value={fmtBRL(totals.totalGmv)} sub="só creators de super afiliados" color="#1B3FE4" bg="#EEF1FD"/>
+            <Card label="Comissões pagas" value={fmtBRL(totals.giseleEarn)} sub="total pago a super afiliados" color="#059669" bg="#ECFDF5"/>
+          </div>
+        </div>
+
+        {/* LINHA 3: Performance do programa super afiliado */}
+        {(() => {
+          // Comissão Amplify só dos creators indicados = totalCom (comissão estimada deles) × 10%
+          const affiliatesTotalCom = AFFILIATES.reduce((acc, a) => acc + (affiliatesData[a.login]?.summary?.totalCom ?? 0), 0)
+          const amplifyFromAffiliated = affiliatesTotalCom * 0.10
+          const margemPrograma = amplifyFromAffiliated - totals.giseleEarn
+          return (
+            <div style={{marginBottom:'1rem'}}>
+              <div style={{fontSize:'10px',fontWeight:700,color:'#9CA3AF',letterSpacing:'0.1em',textTransform:'uppercase',marginBottom:'8px'}}>Performance do programa — super afiliado</div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'12px'}}>
+                <Card label="Comissão Amplify (indicados)" value={fmtBRL(amplifyFromAffiliated)} sub="10% da comissão estimada deles" color="#0D1B8E" bg="#EEF1FD"/>
+                <Card label="Comissão paga aos afiliados" value={fmtBRL(totals.giseleEarn)} sub="20% da comissão Amplify" color="#E4003A" bg="#FFF1F3"/>
+                <Card label="Margem líquida programa" value={fmtBRL(margemPrograma)} sub="comissão Amplify − pago afiliados" color="#059669" bg="#ECFDF5"/>
+              </div>
+            </div>
+          )
+        })()}
 
         {/* GRÁFICO DINÂMICO — muda conforme afiliado clicado */}
         <div style={{background:'white',borderRadius:'14px',padding:'1.25rem',marginBottom:'1rem',border:`2px solid ${selected ? selectedColor : '#E5E7EB'}`,transition:'border-color 0.2s'}}>

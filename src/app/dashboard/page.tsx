@@ -136,6 +136,16 @@ export default function Dashboard() {
         </div>
 
         {/* EVOLUÇÃO SEMANAL */}
+        {selectedCreator && (
+          <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'-4px',padding:'0 2px'}}>
+            <span style={{fontSize:'11px',color:'#1B3FE4',fontWeight:600}}>📊 Mostrando evolução de:</span>
+            <span style={{fontSize:'11px',fontWeight:700,color:'#0D0D1A'}}>{selectedCreator.nome || selectedCreator.handle}</span>
+            <button onClick={()=>setSelectedCreator(null)}
+              style={{fontSize:'11px',color:'#9CA3AF',background:'#F3F4F6',border:'none',borderRadius:'100px',padding:'2px 8px',cursor:'pointer',fontWeight:600}}>
+              Limpar ×
+            </button>
+          </div>
+        )}
         {(weeklyData.length > 1 || (selectedCreator && weeklyDataByCreator[selectedCreator.handle]?.length > 1)) && (
           <div style={{background:'white',borderRadius:'14px',padding:'1.25rem',marginBottom:'1rem',border:`1px solid ${selectedCreator ? '#1B3FE4' : '#E5E7EB'}`}}>
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'1rem',flexWrap:'wrap',gap:'8px'}}>
@@ -242,7 +252,13 @@ export default function Dashboard() {
               </thead>
               <tbody>
                 {filtered.map((l,i)=>(
-                  <tr key={l.id} onClick={()=>INSIDE.has(l.status)?setSelectedCreator(l):null} style={{borderTop:'1px solid #F3F4F6',background:i%2===1?'#F9FAFB':'white',cursor:INSIDE.has(l.status)?'pointer':'default',transition:'background 0.1s'}} onMouseEnter={e=>{if(INSIDE.has(l.status))(e.currentTarget as HTMLElement).style.background='#EEF1FD'}} onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.background=i%2===1?'#F9FAFB':'white'}}>
+                  <tr key={l.id}
+                    onClick={()=>{ if(!INSIDE.has(l.status)) return; setSelectedCreator(selectedCreator?.id===l.id ? null : l) }}
+                    style={{borderTop:'1px solid #F3F4F6',
+                      background: selectedCreator?.id===l.id ? '#EEF1FD' : i%2===1?'#F9FAFB':'white',
+                      cursor:INSIDE.has(l.status)?'pointer':'default',
+                      borderLeft: selectedCreator?.id===l.id ? '3px solid #1B3FE4' : '3px solid transparent',
+                      transition:'all 0.1s'}}>
                     <td style={{padding:'8px 10px',color:'#9CA3AF',fontWeight:600}}>{i+1}</td>
                     <td className="hm" style={{padding:'8px 10px',fontWeight:600,color:'#0D0D1A',maxWidth:'130px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{l.nome||'—'}</td>
                     <td style={{padding:'8px 10px',color:'#6B6B8A',fontSize:'11px',maxWidth:'120px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{l.handle||'—'}</td>
@@ -263,20 +279,7 @@ export default function Dashboard() {
             <span>{fmtBRL(s.totalGmv)}</span>
           </div>
         </div>
-
-        {/* MODAL CREATOR */}
-        {selectedCreator && (
-          <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.4)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center',padding:'1rem'}}
-            onClick={()=>setSelectedCreator(null)}>
-            <div style={{background:'white',borderRadius:'16px',padding:'1.5rem',maxWidth:'420px',width:'100%',boxShadow:'0 24px 64px rgba(0,0,0,0.2)'}}
-              onClick={e=>e.stopPropagation()}>
-              <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'1rem'}}>
-                <div>
-                  <div style={{fontWeight:800,fontSize:'1.1rem',color:'#0D0D1A',letterSpacing:'-0.01em'}}>{selectedCreator.nome||selectedCreator.handle}</div>
-                  <div style={{fontSize:'12px',color:'#9CA3AF',marginTop:'2px'}}>{selectedCreator.handle}</div>
-                </div>
-                <button onClick={()=>setSelectedCreator(null)}
-                  style={{background:'#F3F4F6',border:'none',borderRadius:'50%',width:'28px',height:'28px',cursor:'pointer',fontSize:'16px',display:'flex',alignItems:'center',justifyContent:'center',color:'#6B6B8A'}}>×</button>
+        style={{background:'#F3F4F6',border:'none',borderRadius:'50%',width:'28px',height:'28px',cursor:'pointer',fontSize:'16px',display:'flex',alignItems:'center',justifyContent:'center',color:'#6B6B8A'}}>×</button>
               </div>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',marginBottom:'1rem'}}>
                 {[
