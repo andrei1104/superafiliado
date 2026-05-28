@@ -3,20 +3,23 @@ import { Client } from '@notionhq/client'
 import * as XLSX from 'xlsx'
 
 const notion    = new Client({ auth: process.env.NOTION_TOKEN })
-const LEADS_DB  = process.env.NOTION_LEADS_DB_ID || '2efb0bbef153813a92a5c3e20c6130b2'
-const FOLDER_ID = process.env.GDRIVE_FOLDER_ID  || '1VeOK2-DTfnDbbRueHpKK-a5QkQtyP_Nj'
-const GDRIVE_KEY= process.env.GDRIVE_API_KEY    || ''
 
-// ── Notion: busca todos e filtra por UTM no código ────────────
+// Database correto: Creators I Indique & Ganhe
+const INDIQUE_DB = '31ab0bbef15380a1ab97caa5c68e9813'
+const FOLDER_ID  = process.env.GDRIVE_FOLDER_ID || '1VeOK2-DTfnDbbRueHpKK-a5QkQtyP_Nj'
+const GDRIVE_KEY = process.env.GDRIVE_API_KEY   || ''
+
+const INSIDE = new Set(['Agenciado', 'Convite Aceito'])
+
+// ── Notion: database Creators I Indique & Ganhe ──────────────
 async function fetchLeads(utmFilter: string) {
   const results: any[] = []
   let cursor: string | undefined
   do {
     const res = await notion.databases.query({
-      database_id: LEADS_DB,
+      database_id: INDIQUE_DB,
       start_cursor: cursor,
       page_size: 100,
-      // Sem filter — filtramos no código para evitar erro de campo não encontrado
     })
     results.push(...res.results)
     cursor = res.has_more ? (res.next_cursor ?? undefined) : undefined
@@ -25,16 +28,16 @@ async function fetchLeads(utmFilter: string) {
   const mapped = results.map((page: any) => {
     const p = page.properties
 
-    // Handle: campo title chama "@ do Tiktok"
-    const handle = p['@ do Tiktok']?.title?.[0]?.plain_text ?? ''
-    const nome   = p['Nome do contato']?.rich_text?.[0]?.plain_text ?? ''
-    const status = p['Qual fase do agenciamento?']?.select?.name ?? ''
+    // Nome Completo = title
+    const nome   = p['Nome Completo']?.title?.[0]?.plain_text ?? ''
+    // @ TikTok = text
+    const handle = p['@ TikTok']?.rich_text?.[0]?.plain_text ?? ''
+    // UTM_Source = text
+    const utm    = p['UTM_Source']?.rich_text?.[0]?.plain_text ?? ''
 
-    // UTM pode estar em UTM_Source ou UTM Campaign — tenta os dois
-    const utmSource   = p['UTM_Source']?.rich_text?.[0]?.plain_text ?? ''
-    const utmCampaign = p['UTM Campaign']?.rich_text?.[0]?.plain_text
-                     ?? p['UTM_Campaign']?.rich_text?.[0]?.plain_text ?? ''
-    const utm = utmSource || utmCampaign
+    // Qual a fase do agenciamento = rollup (array de selects)
+    const rollup = p['Qual a fase do agenciamento']?.rollup?.array ?? []
+    const status = rollup.find((r: any) => r.select?.name)?.select?.name ?? ''
 
     return {
       id:      page.id,
@@ -46,20 +49,17 @@ async function fetchLeads(utmFilter: string) {
     }
   })
 
-  // Filtra por UTM no código
   const filtered = utmFilter
     ? mapped.filter(l => l.utm.toLowerCase().includes(utmFilter.toLowerCase()))
     : mapped
 
-  console.log(`Total pages: ${results.length} | Filtered for utm="${utmFilter}": ${filtered.length}`)
-  if (filtered.length > 0) {
-    console.log('Sample:', filtered[0].handle, filtered[0].status, filtered[0].utm)
-  }
+  console.log(`Total: ${results.length} | utm="${utmFilter}": ${filtered.length}`)
+  if (filtered.length > 0) console.log('Sample:', filtered[0])
 
   return filtered
 }
 
-// ── Drive: só arquivos a partir da data da primeira indicação ─
+// ── Drive: arquivos a partir da data da primeira indicação ────
 async function fetchXlsxFromFolder(sinceDate: string) {
   try {
     const listUrl = `https://www.googleapis.com/drive/v3/files?` +
@@ -77,7 +77,7 @@ async function fetchXlsxFromFolder(sinceDate: string) {
       return m && m[2] >= sinceDate
     })
 
-    console.log(`Drive files: ${files.length} total | ${relevantFiles.length} since ${sinceDate}`)
+    console.log(`Drive: ${files.length} total | ${relevantFiles.length} since ${sinceDate}`)
     if (!relevantFiles.length) return { sales: [], weeklySalesMap: {} }
 
     const processed = await Promise.all(
@@ -141,6 +141,7 @@ function cleanHandle(h: string): string {
 
 function matchCreator(handle: string, sales: any[]): any | null {
   const h = cleanHandle(handle)
+  if (!h) return null
   let f = sales.find(s => s.creator === h)
   if (!f && h.length >= 5) f = sales.find(s => s.creator.includes(h) || h.includes(s.creator))
   if (!f && h.length >= 5) {
@@ -150,8 +151,6 @@ function matchCreator(handle: string, sales: any[]): any | null {
   if (!f && h.length >= 8) f = sales.find(s => s.creator.startsWith(h.slice(0,8)))
   return f ?? null
 }
-
-const INSIDE = new Set(['Agenciado','Convite Aceito'])
 
 // ── GET ──────────────────────────────────────────────────────
 export async function GET(req: NextRequest) {
@@ -176,8 +175,8 @@ export async function GET(req: NextRequest) {
     const totalCom   = agenciados.reduce((s,l) => s + l.comissao, 0)
     const giseleEarn = totalCom * 0.10 * 0.20
 
-    // Gráfico semanal: só GMV dos creators agenciados por ela
-    const agenciadoHandles = agenciados.map(l => cleanHandle(l.handle))
+    // Gráfico semanal filtrado só pelos creators agenciados dela
+    const agenciadoHandles = agenciados.map(l => cleanHandle(l.handle)).filter(Boolean)
     const weeklyData = Object.entries(weeklySalesMap)
       .map(([date, weekSales]) => {
         const filtered = weekSales.filter((s: any) =>
