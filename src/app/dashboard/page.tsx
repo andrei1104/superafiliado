@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, CartesianGrid, Area, AreaChart } from 'recharts'
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Area, AreaChart } from 'recharts'
 
 interface Lead { id:string; handle:string; nome:string; status:string; created:string; gmv:number; comissao:number }
 interface Summary { total:number; agenciados:number; conversion:number; totalGmv:number; totalCom:number; giseleEarn:number; updatedAt:string }
@@ -19,7 +19,6 @@ const STATUS_LABEL: Record<string,string> = {
   'Enviar Convite':'Enviar Convite','Enviar Convite (Atendido)':'Enviar Convite',
 }
 const INSIDE = new Set(['Agenciado','Convite Aceito'])
-
 const fmtBRL = (n:number) => 'R$' + n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})
 const fmtDate = (iso:string) => new Date(iso).toLocaleDateString('pt-BR',{day:'2-digit',month:'short'})
 const fmtWeek = (iso:string) => { const d = new Date(iso); return `${d.getDate()}/${d.getMonth()+1}` }
@@ -55,9 +54,9 @@ export default function Dashboard() {
 
   const { summary:s, leads, byDay, weeklyData, weeklyDataByCreator } = data
   const filtered = leads.filter(l => filter==='all' ? true : filter==='inside' ? INSIDE.has(l.status) : !INSIDE.has(l.status))
-
   const chartLabels: Record<string,string> = { gmv:'GMV dos creators', giseleEarn:'Sua comissão' }
   const chartColors: Record<string,string> = { gmv:'#1B3FE4', giseleEarn:'#059669' }
+  const activeData = selectedCreator && weeklyDataByCreator[selectedCreator.handle] ? weeklyDataByCreator[selectedCreator.handle] : weeklyData
 
   return (
     <div style={{background:'#F7F8FF',minHeight:'100vh',fontFamily:"'Inter',sans-serif"}}>
@@ -70,11 +69,8 @@ export default function Dashboard() {
         @media(max-width:640px){.g4{grid-template-columns:repeat(2,1fr)}.g2{grid-template-columns:1fr}.cont{padding:1rem .75rem}.hm{display:none}}
       `}</style>
 
-      {/* HEADER */}
       <header style={{background:'#1B3FE4',padding:'.875rem 1.25rem',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-        <div style={{display:'flex',alignItems:'center'}}>
-          <img src="/amplify-logo.png" alt="Amplify" style={{height:'34px',objectFit:'contain'}} />
-        </div>
+        <img src="/amplify-logo.png" alt="Amplify" style={{height:'34px',objectFit:'contain'}} />
         <div style={{display:'flex',alignItems:'center',gap:'16px'}}>
           <div style={{textAlign:'right'}}>
             <div style={{color:'rgba(255,255,255,.5)',fontSize:'10px',fontWeight:600,letterSpacing:'0.08em',textTransform:'uppercase'}}>Super Afiliada</div>
@@ -88,10 +84,9 @@ export default function Dashboard() {
       </header>
 
       <div className="cont">
+        {/* FILTRO DE DATA */}
         <div style={{marginBottom:'1rem',display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:'8px'}}>
-          <div style={{color:'#9CA3AF',fontSize:'11px',fontWeight:500}}>
-            ↻ Atualizado em {new Date(s.updatedAt).toLocaleString('pt-BR')}
-          </div>
+          <div style={{color:'#9CA3AF',fontSize:'11px',fontWeight:500}}>↻ Atualizado em {new Date(s.updatedAt).toLocaleString('pt-BR')}</div>
           <div style={{display:'flex',alignItems:'center',gap:'8px',flexWrap:'wrap'}}>
             <span style={{fontSize:'11px',color:'#6B6B8A',fontWeight:600}}>Período:</span>
             <input type="date" value={startDate} onChange={e=>setStartDate(e.target.value)}
@@ -120,7 +115,7 @@ export default function Dashboard() {
           <Card label="Comissão estimada" value={fmtBRL(s.giseleEarn)} sub="período atual" color="#059669" bg="#ECFDF5"/>
         </div>
 
-        {/* GMV CARD */}
+        {/* GMV + COMISSÃO */}
         <div style={{background:'white',borderRadius:'14px',padding:'1.25rem',marginBottom:'1rem',border:'1px solid #E5E7EB'}}>
           <div className="g2">
             <div>
@@ -134,9 +129,9 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* EVOLUÇÃO SEMANAL */}
+        {/* BADGE CREATOR SELECIONADO */}
         {selectedCreator && (
-          <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'-4px',padding:'0 2px'}}>
+          <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'4px',padding:'0 2px'}}>
             <span style={{fontSize:'11px',color:'#1B3FE4',fontWeight:600}}>📊 Mostrando evolução de:</span>
             <span style={{fontSize:'11px',fontWeight:700,color:'#0D0D1A'}}>{selectedCreator.nome || selectedCreator.handle}</span>
             <button onClick={()=>setSelectedCreator(null)}
@@ -145,8 +140,10 @@ export default function Dashboard() {
             </button>
           </div>
         )}
-        {(weeklyData.length > 1 || (selectedCreator && weeklyDataByCreator[selectedCreator.handle]?.length > 1)) && (
-          <div style={{background:'white',borderRadius:'14px',padding:'1.25rem',marginBottom:'1rem',border:`1px solid ${selectedCreator ? '#1B3FE4' : '#E5E7EB'}`}}>
+
+        {/* GRÁFICO SEMANAL */}
+        {activeData.length > 1 && (
+          <div style={{background:'white',borderRadius:'14px',padding:'1.25rem',marginBottom:'1rem',border:`1px solid ${selectedCreator?'#1B3FE4':'#E5E7EB'}`}}>
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'1rem',flexWrap:'wrap',gap:'8px'}}>
               <div style={{fontSize:'11px',fontWeight:700,color:'#1B3FE4',letterSpacing:'0.05em',textTransform:'uppercase'}}>
                 {selectedCreator ? `Evolução — ${selectedCreator.nome || selectedCreator.handle}` : 'Evolução semanal'}
@@ -163,7 +160,7 @@ export default function Dashboard() {
               </div>
             </div>
             <ResponsiveContainer width="100%" height={180}>
-              <AreaChart data={selectedCreator && weeklyDataByCreator[selectedCreator.handle] ? weeklyDataByCreator[selectedCreator.handle] : weeklyData} margin={{top:4,right:4,bottom:0,left:0}}>
+              <AreaChart data={activeData} margin={{top:4,right:4,bottom:0,left:0}}>
                 <defs>
                   <linearGradient id="colorGrad" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor={chartColors[activeChart]} stopOpacity={0.15}/>
@@ -177,21 +174,18 @@ export default function Dashboard() {
                 <Area type="monotone" dataKey={activeChart} stroke={chartColors[activeChart]} strokeWidth={2.5} fill="url(#colorGrad)" dot={{r:3,fill:chartColors[activeChart],strokeWidth:0}}/>
               </AreaChart>
             </ResponsiveContainer>
-            {/* Destaque semana mais recente vs anterior */}
-            {(() => {
-              const chartPoints = selectedCreator && weeklyDataByCreator[selectedCreator.handle] ? weeklyDataByCreator[selectedCreator.handle] : weeklyData
-              if (chartPoints.length < 2) return null
-              const last = chartPoints[chartPoints.length-1]
-              const prev = chartPoints[chartPoints.length-2]
-              const diff = last[activeChart] - prev[activeChart]
+            {activeData.length >= 2 && (() => {
+              const last = activeData[activeData.length-1]
+              const prev = activeData[activeData.length-2]
+              const diff = (last[activeChart]??0) - (prev[activeChart]??0)
               const pct  = prev[activeChart] ? (diff/prev[activeChart]*100) : 0
               return (
                 <div style={{marginTop:'12px',display:'flex',gap:'16px',flexWrap:'wrap'}}>
                   <div style={{fontSize:'12px',color:'#6B6B8A'}}>
-                    Última semana: <strong style={{color:'#0D0D1A'}}>{fmtBRL(last[activeChart])}</strong>
+                    Última semana: <strong style={{color:'#0D0D1A'}}>{fmtBRL(last[activeChart]??0)}</strong>
                   </div>
-                  <div style={{fontSize:'12px',color: diff>=0 ? '#059669' : '#E4003A',fontWeight:700}}>
-                    {diff>=0 ? '▲' : '▼'} {fmtBRL(Math.abs(diff))} ({Math.abs(pct).toFixed(1)}%) vs semana anterior
+                  <div style={{fontSize:'12px',color:diff>=0?'#059669':'#E4003A',fontWeight:700}}>
+                    {diff>=0?'▲':'▼'} {fmtBRL(Math.abs(diff))} ({Math.abs(pct).toFixed(1)}%) vs semana anterior
                   </div>
                 </div>
               )
@@ -199,7 +193,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* CHARTS ROW */}
+        {/* CHARTS */}
         <div className="g2" style={{marginBottom:'1rem'}}>
           <div style={{background:'white',borderRadius:'14px',padding:'1.25rem',border:'1px solid #E5E7EB'}}>
             <div style={{fontSize:'11px',fontWeight:700,color:'#1B3FE4',marginBottom:'0.75rem',letterSpacing:'0.05em',textTransform:'uppercase'}}>Indicações por dia</div>
@@ -254,9 +248,9 @@ export default function Dashboard() {
                   <tr key={l.id}
                     onClick={()=>{ if(!INSIDE.has(l.status)) return; setSelectedCreator(selectedCreator?.id===l.id ? null : l) }}
                     style={{borderTop:'1px solid #F3F4F6',
-                      background: selectedCreator?.id===l.id ? '#EEF1FD' : i%2===1?'#F9FAFB':'white',
+                      background:selectedCreator?.id===l.id?'#EEF1FD':i%2===1?'#F9FAFB':'white',
                       cursor:INSIDE.has(l.status)?'pointer':'default',
-                      borderLeft: selectedCreator?.id===l.id ? '3px solid #1B3FE4' : '3px solid transparent',
+                      borderLeft:selectedCreator?.id===l.id?'3px solid #1B3FE4':'3px solid transparent',
                       transition:'all 0.1s'}}>
                     <td style={{padding:'8px 10px',color:'#9CA3AF',fontWeight:600}}>{i+1}</td>
                     <td className="hm" style={{padding:'8px 10px',fontWeight:600,color:'#0D0D1A',maxWidth:'130px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{l.nome||'—'}</td>
@@ -278,30 +272,9 @@ export default function Dashboard() {
             <span>{fmtBRL(s.totalGmv)}</span>
           </div>
         </div>
-        style={{background:'#F3F4F6',border:'none',borderRadius:'50%',width:'28px',height:'28px',cursor:'pointer',fontSize:'16px',display:'flex',alignItems:'center',justifyContent:'center',color:'#6B6B8A'}}>×</button>
-              </div>
-              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',marginBottom:'1rem'}}>
-                {[
-                  {label:'Status', value: (STATUS_LABEL[selectedCreator.status]??selectedCreator.status), color: STATUS_COLOR[selectedCreator.status]??'#9CA3AF'},
-                  {label:'GMV acumulado', value: fmtBRL(selectedCreator.gmv), color:'#1B3FE4'},
-                  {label:'Comissão TikTok', value: fmtBRL(selectedCreator.comissao), color:'#7C3AED'},
-                  {label:'Sua comissão', value: fmtBRL(selectedCreator.comissao*0.10*0.20), color:'#059669'},
-                ].map(({label,value,color}) => (
-                  <div key={label} style={{background:'#F7F8FF',borderRadius:'10px',padding:'10px 12px'}}>
-                    <div style={{fontSize:'9px',fontWeight:700,color:'#9CA3AF',textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:'3px'}}>{label}</div>
-                    <div style={{fontSize:'1rem',fontWeight:800,color}}>{value}</div>
-                  </div>
-                ))}
-              </div>
-              <div style={{fontSize:'11px',color:'#9CA3AF',textAlign:'center'}}>
-                Indicado em {new Date(selectedCreator.created).toLocaleDateString('pt-BR',{day:'2-digit',month:'long',year:'numeric'})}
-              </div>
-            </div>
-          </div>
-        )}
 
         <div style={{marginTop:'.75rem',background:'#FFFBEB',border:'1px solid #FDE68A',borderRadius:'10px',padding:'10px 14px',fontSize:'11px',color:'#92400E'}}>
-          <strong>Cálculo:</strong> GMV × 10% (creator) × 10% (Amplify) × 20% (você) · Cache de 5 minutos.
+          <strong>Cálculo:</strong> Comissão estimada (TikTok) × 10% (Amplify) × 20% (você) · Cache de 5 minutos.
         </div>
       </div>
     </div>
