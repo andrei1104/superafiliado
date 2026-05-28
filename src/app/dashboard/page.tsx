@@ -32,6 +32,9 @@ export default function Dashboard() {
   const [error, setError] = useState('')
   const [filter, setFilter] = useState<'all'|'inside'|'other'>('all')
   const [selectedCreator, setSelectedCreator] = useState<Lead|null>(null)
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
+  const [appliedDates, setAppliedDates] = useState({ start:'', end:'' })
   const [activeChart, setActiveChart] = useState<'gmv'|'comissao'|'giseleEarn'>('giseleEarn')
 
   useEffect(() => {
@@ -40,11 +43,12 @@ export default function Dashboard() {
     const u = JSON.parse(stored)
     if (u.role === 'admin') { router.push('/admin'); return }
     setUser(u)
-    fetch(`/api/data?utm=${encodeURIComponent(u.utm)}`)
+    setData(null)
+    fetch(`/api/data?utm=${encodeURIComponent(u.utm)}${appliedDates.start?'&startDate='+appliedDates.start:''}${appliedDates.end?'&endDate='+appliedDates.end:''}`)
       .then(r => r.json())
       .then(d => { if (d.error) setError(d.error); else setData(d); setLoading(false) })
       .catch(() => { setError('Erro ao carregar.'); setLoading(false) })
-  }, [router])
+  }, [router, appliedDates])
 
   if (!user || loading) return <LoadingScreen />
   if (error || !data) return <ErrorScreen msg={error} />
@@ -84,8 +88,28 @@ export default function Dashboard() {
       </header>
 
       <div className="cont">
-        <div style={{marginBottom:'1.25rem',color:'#9CA3AF',fontSize:'11px',fontWeight:500}}>
-          ↻ Atualizado em {new Date(s.updatedAt).toLocaleString('pt-BR')}
+        <div style={{marginBottom:'1rem',display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:'8px'}}>
+          <div style={{color:'#9CA3AF',fontSize:'11px',fontWeight:500}}>
+            ↻ Atualizado em {new Date(s.updatedAt).toLocaleString('pt-BR')}
+          </div>
+          <div style={{display:'flex',alignItems:'center',gap:'8px',flexWrap:'wrap'}}>
+            <span style={{fontSize:'11px',color:'#6B6B8A',fontWeight:600}}>Período:</span>
+            <input type="date" value={startDate} onChange={e=>setStartDate(e.target.value)}
+              style={{fontSize:'11px',padding:'4px 8px',borderRadius:'8px',border:'1.5px solid #E5E7EB',outline:'none',fontFamily:'inherit'}}/>
+            <span style={{fontSize:'11px',color:'#9CA3AF'}}>até</span>
+            <input type="date" value={endDate} onChange={e=>setEndDate(e.target.value)}
+              style={{fontSize:'11px',padding:'4px 8px',borderRadius:'8px',border:'1.5px solid #E5E7EB',outline:'none',fontFamily:'inherit'}}/>
+            <button onClick={()=>{setLoading(true);setAppliedDates({start:startDate,end:endDate})}}
+              style={{fontSize:'11px',fontWeight:700,padding:'4px 12px',borderRadius:'8px',border:'none',background:'#1B3FE4',color:'white',cursor:'pointer'}}>
+              Filtrar
+            </button>
+            {(appliedDates.start||appliedDates.end) && (
+              <button onClick={()=>{setStartDate('');setEndDate('');setLoading(true);setAppliedDates({start:'',end:''})}}
+                style={{fontSize:'11px',fontWeight:700,padding:'4px 10px',borderRadius:'8px',border:'none',background:'#F3F4F6',color:'#6B6B8A',cursor:'pointer'}}>
+                Limpar ×
+              </button>
+            )}
+          </div>
         </div>
 
         {/* CARDS */}

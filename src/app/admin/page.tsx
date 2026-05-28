@@ -23,6 +23,9 @@ export default function Admin() {
   const [loading, setLoading]   = useState(true)
   const [selected, setSelected] = useState<string|null>(null)
   const [metric, setMetric]     = useState<string>('amplifyGmv')
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
+  const [appliedDates, setAppliedDates] = useState({ start:'', end:'' })
 
   useEffect(() => {
     const stored = sessionStorage.getItem('amplify_user')
@@ -32,7 +35,7 @@ export default function Admin() {
 
     Promise.all(
       AFFILIATES.map(a =>
-        fetch(`/api/data?utm=${encodeURIComponent(a.utm)}`)
+        fetch(`/api/data?utm=${encodeURIComponent(a.utm)}${appliedDates.start?'&startDate='+appliedDates.start:''}${appliedDates.end?'&endDate='+appliedDates.end:''}`)
           .then(r => r.json())
           .then(d => ({ login: a.login, data: d }))
           .catch(() => ({ login: a.login, data: null }))
@@ -45,7 +48,7 @@ export default function Admin() {
       setSelected(AFFILIATES[0]?.login ?? null)
       setLoading(false)
     })
-  }, [router])
+  }, [router, appliedDates])
 
   if (loading) return <LoadingScreen />
 
@@ -107,7 +110,24 @@ export default function Admin() {
           <img src="/amplify-logo.png" alt="Amplify" style={{height:'34px',objectFit:'contain'}} />
         </div>
         <div style={{display:'flex',alignItems:'center',gap:'12px'}}>
-          <span style={{color:'rgba(255,255,255,.6)',fontSize:'12px',fontWeight:600}}>Super Afiliados · Admin</span>
+          <div style={{display:'flex',alignItems:'center',gap:'8px',flexWrap:'wrap'}}>
+          <span style={{color:'rgba(255,255,255,.6)',fontSize:'11px',fontWeight:600}}>Período:</span>
+          <input type="date" value={startDate} onChange={e=>setStartDate(e.target.value)}
+            style={{fontSize:'11px',padding:'3px 7px',borderRadius:'6px',border:'none',background:'rgba(255,255,255,.15)',color:'white',outline:'none',fontFamily:'inherit'}}/>
+          <span style={{color:'rgba(255,255,255,.4)',fontSize:'11px'}}>até</span>
+          <input type="date" value={endDate} onChange={e=>setEndDate(e.target.value)}
+            style={{fontSize:'11px',padding:'3px 7px',borderRadius:'6px',border:'none',background:'rgba(255,255,255,.15)',color:'white',outline:'none',fontFamily:'inherit'}}/>
+          <button onClick={()=>{setLoading(true);setAffiliatesData({});setAppliedDates({start:startDate,end:endDate})}}
+            style={{fontSize:'11px',fontWeight:700,padding:'3px 10px',borderRadius:'6px',border:'none',background:'white',color:'#0D1B8E',cursor:'pointer'}}>
+            Filtrar
+          </button>
+          {(appliedDates.start||appliedDates.end) && (
+            <button onClick={()=>{setStartDate('');setEndDate('');setLoading(true);setAffiliatesData({});setAppliedDates({start:'',end:''})}}
+              style={{fontSize:'11px',fontWeight:600,padding:'3px 8px',borderRadius:'6px',border:'none',background:'rgba(255,255,255,.15)',color:'white',cursor:'pointer'}}>
+              Limpar ×
+            </button>
+          )}
+        </div>
           <button onClick={()=>{sessionStorage.clear();router.push('/')}}
             style={{background:'rgba(255,255,255,.15)',border:'none',borderRadius:'8px',padding:'6px 12px',color:'white',fontSize:'12px',fontWeight:600,cursor:'pointer'}}>
             Sair
