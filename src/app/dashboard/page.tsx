@@ -67,11 +67,8 @@ export default function Dashboard() {
 
       {/* HEADER */}
       <header style={{background:'#1B3FE4',padding:'.875rem 1.25rem',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-        <div style={{display:'flex',alignItems:'center',gap:'10px'}}>
-          <div style={{background:'#E4003A',borderRadius:'8px',width:'32px',height:'32px',display:'flex',alignItems:'center',justifyContent:'center'}}>
-            <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M4 10L10 4L16 10L10 16L4 10Z" fill="white"/></svg>
-          </div>
-          <span style={{color:'white',fontWeight:800,fontSize:'1rem'}}>Amplify <span style={{opacity:.6,fontWeight:400}}>club</span></span>
+        <div style={{display:'flex',alignItems:'center'}}>
+          <img src="/amplify-logo.png" alt="Amplify" style={{height:'34px',objectFit:'contain'}} />
         </div>
         <div style={{display:'flex',alignItems:'center',gap:'16px'}}>
           <div style={{textAlign:'right'}}>

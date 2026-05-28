@@ -83,11 +83,8 @@ export default function Admin() {
       <style>{`*{box-sizing:border-box}.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}.cont{max-width:1160px;margin:0 auto;padding:1.5rem 1rem}@media(max-width:640px){.g4{grid-template-columns:repeat(2,1fr)}.g2{grid-template-columns:1fr}.cont{padding:1rem .75rem}}`}</style>
 
       <header style={{background:'#0D1B8E',padding:'.875rem 1.25rem',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-        <div style={{display:'flex',alignItems:'center',gap:'10px'}}>
-          <div style={{background:'#E4003A',borderRadius:'8px',width:'32px',height:'32px',display:'flex',alignItems:'center',justifyContent:'center'}}>
-            <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M4 10L10 4L16 10L10 16L4 10Z" fill="white"/></svg>
-          </div>
-          <span style={{color:'white',fontWeight:800,fontSize:'1rem'}}>Amplify <span style={{opacity:.5,fontWeight:400}}>admin</span></span>
+        <div style={{display:'flex',alignItems:'center'}}>
+          <img src="/amplify-logo.png" alt="Amplify" style={{height:'34px',objectFit:'contain'}} />
         </div>
         <div style={{display:'flex',alignItems:'center',gap:'12px'}}>
           <span style={{color:'rgba(255,255,255,.6)',fontSize:'12px',fontWeight:600}}>Super Afiliados · Visão Consolidada</span>

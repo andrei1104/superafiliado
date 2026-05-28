@@ -33,14 +33,7 @@ export default function Login() {
 
       {/* Logo */}
       <div style={{ marginBottom:'2.5rem', textAlign:'center' }}>
-        <div style={{ display:'flex', alignItems:'center', gap:'10px', justifyContent:'center', marginBottom:'8px' }}>
-          <div style={{ background:'#E4003A', borderRadius:'10px', width:'40px', height:'40px', display:'flex', alignItems:'center', justifyContent:'center' }}>
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-              <path d="M4 10L10 4L16 10L10 16L4 10Z" fill="white"/>
-            </svg>
-          </div>
-          <span style={{ color:'white', fontWeight:800, fontSize:'1.5rem', letterSpacing:'-0.02em' }}>Amplify</span>
-        </div>
+        <img src="/amplify-logo.png" alt="Amplify" style={{ height:'52px', objectFit:'contain', marginBottom:'10px' }} />
         <div style={{ color:'rgba(255,255,255,0.5)', fontSize:'13px', fontWeight:500, letterSpacing:'0.05em', textTransform:'uppercase' }}>
           Super Afiliado · Portal
         </div>
