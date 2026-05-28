@@ -1,12 +1,12 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, CartesianGrid } from 'recharts'
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { USERS } from '../lib/auth'
 
-const fmtBRL = (n:number) => 'R$' + n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})
-const fmtWeek = (iso:string) => { const d = new Date(iso); return `${d.getDate()}/${d.getMonth()+1}` }
-const fmtDate = (iso:string) => new Date(iso).toLocaleDateString('pt-BR',{day:'2-digit',month:'short'})
+const fmtBRL  = (n:number) => 'R$' + n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})
+const fmtWeek = (iso:string) => { const d = new Date(iso+'T00:00:00'); return `${d.getDate()}/${d.getMonth()+1}` }
+const fmtDate = (iso:string) => new Date(iso+'T00:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short'})
 
 const AFFILIATES = Object.entries(USERS)
   .filter(([,v]) => v.role === 'affiliate')
@@ -14,12 +14,15 @@ const AFFILIATES = Object.entries(USERS)
 
 const COLORS = ['#1B3FE4','#E4003A','#059669','#D97706','#7C3AED']
 
+type Metric = 'giseleEarn' | 'gmv' | 'comissao'
+const METRIC_LABELS: Record<Metric,string> = { giseleEarn:'Sua comissão', gmv:'GMV dos creators', comissao:'Comissão TikTok' }
+
 export default function Admin() {
   const router = useRouter()
   const [affiliatesData, setAffiliatesData] = useState<Record<string, any>>({})
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading]   = useState(true)
   const [selected, setSelected] = useState<string|null>(null)
-  const [activeMetric, setActiveMetric] = useState<'giseleEarn'|'gmv'>('giseleEarn')
+  const [metric, setMetric]     = useState<string>('amplifyGmv')
 
   useEffect(() => {
     const stored = sessionStorage.getItem('amplify_user')
@@ -27,7 +30,6 @@ export default function Admin() {
     const u = JSON.parse(stored)
     if (u.role !== 'admin') { router.push('/dashboard'); return }
 
-    // Busca dados de cada afiliado em paralelo
     Promise.all(
       AFFILIATES.map(a =>
         fetch(`/api/data?utm=${encodeURIComponent(a.utm)}`)
@@ -39,6 +41,8 @@ export default function Admin() {
       const map: Record<string, any> = {}
       results.forEach(r => { map[r.login] = r.data })
       setAffiliatesData(map)
+      // Seleciona o primeiro por padrão
+      setSelected(AFFILIATES[0]?.login ?? null)
       setLoading(false)
     })
   }, [router])
@@ -49,34 +53,50 @@ export default function Admin() {
   const totals = AFFILIATES.reduce((acc, a) => {
     const d = affiliatesData[a.login]?.summary
     if (!d) return acc
-    return {
-      total: acc.total + d.total,
-      agenciados: acc.agenciados + d.agenciados,
-      totalGmv: acc.totalGmv + d.totalGmv,
-      giseleEarn: acc.giseleEarn + d.giseleEarn,
-    }
+    return { total: acc.total+d.total, agenciados: acc.agenciados+d.agenciados, totalGmv: acc.totalGmv+d.totalGmv, giseleEarn: acc.giseleEarn+d.giseleEarn }
   }, { total:0, agenciados:0, totalGmv:0, giseleEarn:0 })
 
-  // Evolução semanal consolidada
-  const weeklyMap: Record<string, number> = {}
-  AFFILIATES.forEach(a => {
-    const wd = affiliatesData[a.login]?.weeklyData ?? []
-    wd.forEach((w: any) => {
-      weeklyMap[w.date] = (weeklyMap[w.date] ?? 0) + w.giseleEarn
+  // Amplify GMV total (usa dados do primeiro afiliado — mesmos arquivos)
+  const firstAffData      = affiliatesData[AFFILIATES[0]?.login]
+  const weeklyAmplifyData = firstAffData?.weeklyAmplifyData ?? []
+  const amplifyTotalGmv   = firstAffData?.summary?.amplifyTotalGmv ?? 0
+  const amplifyTotalRev   = firstAffData?.summary?.amplifyTotalRevenue ?? 0
+
+  // Dados do afiliado selecionado (ou consolidado)
+  const selectedAffiliate = AFFILIATES.find(a => a.login === selected)
+  const selectedData      = selected ? affiliatesData[selected] : null
+  const selectedColor     = selected ? COLORS[AFFILIATES.findIndex(a => a.login === selected) % COLORS.length] : '#1B3FE4'
+
+  // Gráfico: se tem afiliado selecionado, mostra dados dele; senão consolidado
+  const consolidatedChartData = (() => {
+    // Mescla weeklyData dos afiliados + weeklyAmplifyData
+    const map: Record<string, any> = {}
+    AFFILIATES.forEach(a => {
+      const wd = affiliatesData[a.login]?.weeklyData ?? []
+      wd.forEach((w: any) => {
+        if (!map[w.date]) map[w.date] = { date: w.date, giseleEarn:0, gmv:0, comissao:0, amplifyGmv:0, amplifyRevenue:0 }
+        map[w.date].giseleEarn += w.giseleEarn
+        map[w.date].gmv       += w.gmv
+        map[w.date].comissao  += w.comissao
+      })
     })
-  })
-  const consolidatedWeekly = Object.entries(weeklyMap)
-    .sort(([a],[b]) => a.localeCompare(b))
-    .map(([date, giseleEarn]) => ({ date, giseleEarn }))
+    weeklyAmplifyData.forEach((w: any) => {
+      if (!map[w.date]) map[w.date] = { date: w.date, giseleEarn:0, gmv:0, comissao:0, amplifyGmv:0, amplifyRevenue:0 }
+      map[w.date].amplifyGmv     = w.gmv
+      map[w.date].amplifyRevenue = w.amplifyRevenue
+    })
+    return Object.values(map).sort((a:any,b:any) => a.date.localeCompare(b.date))
+  })()
 
-  // Ranking afiliados
-  const ranking = AFFILIATES.map(a => ({
-    ...a,
-    summary: affiliatesData[a.login]?.summary ?? null,
-  })).sort((a,b) => (b.summary?.giseleEarn ?? 0) - (a.summary?.giseleEarn ?? 0))
+  const chartData = selected ? (selectedData?.weeklyData ?? []) : consolidatedChartData
+  const availableMetrics: string[] = selected
+    ? ['giseleEarn','gmv','comissao']
+    : ['amplifyGmv','amplifyRevenue','giseleEarn','gmv']
 
-  const selectedData = selected ? affiliatesData[selected] : null
-  const selectedUser = AFFILIATES.find(a => a.login === selected)
+  // Ranking
+  const ranking = AFFILIATES
+    .map(a => ({ ...a, summary: affiliatesData[a.login]?.summary ?? null }))
+    .sort((a,b) => (b.summary?.giseleEarn ?? 0) - (a.summary?.giseleEarn ?? 0))
 
   return (
     <div style={{background:'#F7F8FF',minHeight:'100vh',fontFamily:"'Inter',sans-serif"}}>
@@ -87,7 +107,7 @@ export default function Admin() {
           <img src="/amplify-logo.png" alt="Amplify" style={{height:'34px',objectFit:'contain'}} />
         </div>
         <div style={{display:'flex',alignItems:'center',gap:'12px'}}>
-          <span style={{color:'rgba(255,255,255,.6)',fontSize:'12px',fontWeight:600}}>Super Afiliados · Visão Consolidada</span>
+          <span style={{color:'rgba(255,255,255,.6)',fontSize:'12px',fontWeight:600}}>Super Afiliados · Admin</span>
           <button onClick={()=>{sessionStorage.clear();router.push('/')}}
             style={{background:'rgba(255,255,255,.15)',border:'none',borderRadius:'8px',padding:'6px 12px',color:'white',fontSize:'12px',fontWeight:600,cursor:'pointer'}}>
             Sair
@@ -96,71 +116,140 @@ export default function Admin() {
       </header>
 
       <div className="cont">
+
         {/* KPIs consolidados */}
-        <div style={{marginBottom:'1rem',marginTop:'.5rem'}}>
+        <div style={{marginTop:'.5rem',marginBottom:'1rem'}}>
           <div style={{fontSize:'10px',fontWeight:700,color:'#9CA3AF',letterSpacing:'0.1em',textTransform:'uppercase',marginBottom:'8px'}}>Consolidado — todos os super afiliados</div>
           <div className="g4">
             <Card label="Total indicações" value={String(totals.total)} sub="somados" color="#0D0D1A" bg="white"/>
             <Card label="Agenciados" value={String(totals.agenciados)} sub="somados" color="#1B3FE4" bg="white"/>
-            <Card label="GMV total" value={fmtBRL(totals.totalGmv)} sub="período atual" color="#1B3FE4" bg="#EEF1FD"/>
+            <Card label="GMV total" value={fmtBRL(totals.totalGmv)} sub="só dos indicados" color="#1B3FE4" bg="#EEF1FD"/>
             <Card label="Comissões pagas" value={fmtBRL(totals.giseleEarn)} sub="total afiliados" color="#059669" bg="#ECFDF5"/>
           </div>
         </div>
 
-        {/* Evolução semanal consolidada */}
-        {consolidatedWeekly.length > 1 && (
-          <div style={{background:'white',borderRadius:'14px',padding:'1.25rem',marginBottom:'1rem',border:'1px solid #E5E7EB'}}>
-            <div style={{fontSize:'11px',fontWeight:700,color:'#0D1B8E',letterSpacing:'0.05em',textTransform:'uppercase',marginBottom:'1rem'}}>Evolução semanal — comissões pagas (todos)</div>
-            <ResponsiveContainer width="100%" height={160}>
-              <AreaChart data={consolidatedWeekly}>
-                <defs>
-                  <linearGradient id="cg" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#0D1B8E" stopOpacity={0.12}/>
-                    <stop offset="95%" stopColor="#0D1B8E" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" vertical={false}/>
-                <XAxis dataKey="date" tickFormatter={fmtWeek} tick={{fontSize:10,fill:'#9CA3AF'}} axisLine={false} tickLine={false}/>
-                <YAxis hide/>
-                <Tooltip formatter={(v:number)=>[fmtBRL(v),'Comissão total']} labelFormatter={l=>fmtDate(l)}/>
-                <Area type="monotone" dataKey="giseleEarn" stroke="#0D1B8E" strokeWidth={2.5} fill="url(#cg)" dot={{r:3,fill:'#0D1B8E',strokeWidth:0}}/>
-              </AreaChart>
-            </ResponsiveContainer>
+        {/* KPIs Amplify */}
+        {amplifyTotalGmv > 0 && (
+          <div style={{marginBottom:'1rem'}}>
+            <div style={{fontSize:'10px',fontWeight:700,color:'#9CA3AF',letterSpacing:'0.1em',textTransform:'uppercase',marginBottom:'8px'}}>Performance Amplify — todos os creators</div>
+            <div className="g4">
+              <Card label="GMV total da base" value={fmtBRL(amplifyTotalGmv)} sub="todos os creators" color="#0D1B8E" bg="white"/>
+              <Card label="Receita Amplify" value={fmtBRL(amplifyTotalRev)} sub="10% do GMV" color="#0D1B8E" bg="#EEF1FD"/>
+              <Card label="Comissões pagas" value={fmtBRL(totals.giseleEarn)} sub="para super afiliados" color="#E4003A" bg="#FFF1F3"/>
+              <Card label="Margem líquida" value={fmtBRL(amplifyTotalRev - totals.giseleEarn)} sub="receita − comissões" color="#059669" bg="#ECFDF5"/>
+            </div>
           </div>
         )}
 
-        {/* RANKING + DETALHE */}
-        <div className="g2">
-          {/* Ranking */}
-          <div style={{background:'white',borderRadius:'14px',border:'1px solid #E5E7EB',overflow:'hidden'}}>
-            <div style={{padding:'.875rem 1rem',borderBottom:'1px solid #EEF1FD'}}>
-              <div style={{fontSize:'11px',fontWeight:700,color:'#0D1B8E',letterSpacing:'0.05em',textTransform:'uppercase'}}>Ranking — super afiliados</div>
+        {/* GRÁFICO DINÂMICO — muda conforme afiliado clicado */}
+        <div style={{background:'white',borderRadius:'14px',padding:'1.25rem',marginBottom:'1rem',border:`2px solid ${selected ? selectedColor : '#E5E7EB'}`,transition:'border-color 0.2s'}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'1rem',flexWrap:'wrap',gap:'8px'}}>
+            <div>
+              <div style={{fontSize:'11px',fontWeight:700,color: selected ? selectedColor : '#0D1B8E',letterSpacing:'0.05em',textTransform:'uppercase'}}>
+                {selected ? `${selectedAffiliate?.name} — Evolução semanal` : 'Evolução semanal — consolidado'}
+              </div>
+              {selected && selectedData?.summary && (
+                <div style={{fontSize:'12px',color:'#6B6B8A',marginTop:'2px'}}>
+                  {selectedData.summary.agenciados} agenciados · GMV {fmtBRL(selectedData.summary.totalGmv)} · Comissão {fmtBRL(selectedData.summary.giseleEarn)}
+                </div>
+              )}
             </div>
-            {ranking.map((a, i) => {
+            <div style={{display:'flex',gap:'6px',flexWrap:'wrap'}}>
+              {selected && (
+                <button onClick={()=>setSelected(null)}
+                  style={{fontSize:'11px',fontWeight:700,padding:'4px 10px',borderRadius:'100px',border:`1px solid ${selectedColor}`,cursor:'pointer',background:'white',color:selectedColor}}>
+                  Ver consolidado
+                </button>
+              )}
+              {availableMetrics.map(m => (
+                <button key={m} onClick={()=>setMetric(m as any)}
+                  style={{fontSize:'11px',fontWeight:700,padding:'4px 10px',borderRadius:'100px',border:'none',cursor:'pointer',
+                    background: metric===m ? (selected ? selectedColor : '#0D1B8E') : '#F3F4F6',
+                    color: metric===m ? 'white' : '#6B6B8A'}}>
+                  {METRIC_LABELS[m]}
+                </button>
+              ))}
+            </div>
+          </div>
+          {chartData.length > 1 ? (
+            <>
+              <ResponsiveContainer width="100%" height={180}>
+                <AreaChart data={chartData}>
+                  <defs>
+                    <linearGradient id="agrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor={selected ? selectedColor : '#0D1B8E'} stopOpacity={0.12}/>
+                      <stop offset="95%" stopColor={selected ? selectedColor : '#0D1B8E'} stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" vertical={false}/>
+                  <XAxis dataKey="date" tickFormatter={fmtWeek} tick={{fontSize:10,fill:'#9CA3AF'}} axisLine={false} tickLine={false}/>
+                  <YAxis hide/>
+                  <Tooltip formatter={(v:number)=>[fmtBRL(v),METRIC_LABELS[metric]]} labelFormatter={l=>fmtDate(l)}/>
+                  <Area type="monotone" dataKey={metric} stroke={selected ? selectedColor : '#0D1B8E'} strokeWidth={2.5} fill="url(#agrad)"
+                    dot={{r:3,fill:selected ? selectedColor : '#0D1B8E',strokeWidth:0}}/>
+                </AreaChart>
+              </ResponsiveContainer>
+              {chartData.length >= 2 && (() => {
+                const last = chartData[chartData.length-1]
+                const prev = chartData[chartData.length-2]
+                const diff = (last[metric]??0) - (prev[metric]??0)
+                const pct  = prev[metric] ? (diff/prev[metric]*100) : 0
+                return (
+                  <div style={{marginTop:'10px',display:'flex',gap:'16px',flexWrap:'wrap',fontSize:'12px'}}>
+                    <span style={{color:'#6B6B8A'}}>Última semana: <strong style={{color:'#0D0D1A'}}>{fmtBRL(last[metric]??0)}</strong></span>
+                    <span style={{fontWeight:700,color:diff>=0?'#059669':'#E4003A'}}>
+                      {diff>=0?'▲':'▼'} {fmtBRL(Math.abs(diff))} ({Math.abs(pct).toFixed(1)}%) vs semana anterior
+                    </span>
+                  </div>
+                )
+              })()}
+            </>
+          ) : (
+            <div style={{height:'180px',display:'flex',alignItems:'center',justifyContent:'center',color:'#9CA3AF',fontSize:'13px'}}>
+              Dados insuficientes para gráfico
+            </div>
+          )}
+        </div>
+
+        {/* RANKING */}
+        <div className="g2">
+          <div style={{background:'white',borderRadius:'14px',border:'1px solid #E5E7EB',overflow:'hidden'}}>
+            <div style={{padding:'.875rem 1rem',borderBottom:'1px solid #EEF1FD',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+              <div style={{fontSize:'11px',fontWeight:700,color:'#0D1B8E',letterSpacing:'0.05em',textTransform:'uppercase'}}>Ranking — clique para filtrar</div>
+              {selected && (
+                <button onClick={()=>setSelected(null)}
+                  style={{fontSize:'11px',color:'#9CA3AF',background:'none',border:'none',cursor:'pointer',fontWeight:600}}>
+                  Limpar filtro ×
+                </button>
+              )}
+            </div>
+            {ranking.map((a,i) => {
               const s = a.summary
+              const color = COLORS[i % COLORS.length]
               const isSelected = selected === a.login
               return (
                 <div key={a.login} onClick={()=>setSelected(isSelected ? null : a.login)}
                   style={{padding:'12px 16px',borderBottom:'1px solid #F3F4F6',cursor:'pointer',
-                    background: isSelected ? '#EEF1FD' : i%2===0 ? 'white' : '#F9FAFB',
-                    transition:'background 0.15s'}}>
+                    background: isSelected ? color+'15' : i%2===0 ? 'white' : '#F9FAFB',
+                    borderLeft: isSelected ? `3px solid ${color}` : '3px solid transparent',
+                    transition:'all 0.15s'}}>
                   <div style={{display:'flex',alignItems:'center',gap:'10px'}}>
-                    <div style={{width:'28px',height:'28px',borderRadius:'50%',background:COLORS[i]+'22',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'12px',fontWeight:800,color:COLORS[i]}}>
+                    <div style={{width:'28px',height:'28px',borderRadius:'50%',background:color+'22',display:'flex',alignItems:'center',justifyContent:'center',
+                      fontSize:'12px',fontWeight:800,color, flexShrink:0}}>
                       {i+1}
                     </div>
-                    <div style={{flex:1}}>
-                      <div style={{fontWeight:700,fontSize:'13px',color:'#0D0D1A'}}>{a.name}</div>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontWeight:700,fontSize:'13px',color: isSelected ? color : '#0D0D1A'}}>{a.name}</div>
                       <div style={{fontSize:'11px',color:'#9CA3AF'}}>{a.handle} · {s?.agenciados ?? 0} agenciados</div>
                     </div>
-                    <div style={{textAlign:'right'}}>
+                    <div style={{textAlign:'right',flexShrink:0}}>
                       <div style={{fontWeight:800,fontSize:'13px',color:'#059669'}}>{s ? fmtBRL(s.giseleEarn) : '—'}</div>
                       <div style={{fontSize:'10px',color:'#9CA3AF'}}>GMV {s ? fmtBRL(s.totalGmv) : '—'}</div>
                     </div>
                   </div>
-                  {/* Mini progress bar */}
                   {s && totals.giseleEarn > 0 && (
-                    <div style={{marginTop:'8px',background:'#F3F4F6',borderRadius:'100px',height:'4px'}}>
-                      <div style={{background:COLORS[i],borderRadius:'100px',height:'4px',width:`${(s.giseleEarn/totals.giseleEarn*100).toFixed(1)}%`}}/>
+                    <div style={{marginTop:'8px',background:'#F3F4F6',borderRadius:'100px',height:'3px'}}>
+                      <div style={{background:color,borderRadius:'100px',height:'3px',width:`${Math.min(s.giseleEarn/totals.giseleEarn*100,100).toFixed(1)}%`,transition:'width 0.3s'}}/>
                     </div>
                   )}
                 </div>
@@ -168,13 +257,13 @@ export default function Admin() {
             })}
           </div>
 
-          {/* Detalhe do afiliado selecionado */}
+          {/* Detalhe do selecionado */}
           <div>
-            {selectedData && selectedUser ? (
-              <div style={{background:'white',borderRadius:'14px',border:`2px solid ${COLORS[ranking.findIndex(a=>a.login===selected)]}`,overflow:'hidden'}}>
-                <div style={{padding:'.875rem 1rem',borderBottom:'1px solid #EEF1FD',background:COLORS[ranking.findIndex(a=>a.login===selected)]+'11'}}>
-                  <div style={{fontSize:'11px',fontWeight:700,color:COLORS[ranking.findIndex(a=>a.login===selected)],letterSpacing:'0.05em',textTransform:'uppercase'}}>
-                    {selectedUser.name} · Detalhe
+            {selectedData && selectedAffiliate ? (
+              <div style={{background:'white',borderRadius:'14px',border:`2px solid ${selectedColor}`,overflow:'hidden'}}>
+                <div style={{padding:'.875rem 1rem',borderBottom:'1px solid #EEF1FD',background:selectedColor+'11'}}>
+                  <div style={{fontSize:'11px',fontWeight:700,color:selectedColor,letterSpacing:'0.05em',textTransform:'uppercase'}}>
+                    {selectedAffiliate.name} · Top Creators
                   </div>
                 </div>
                 <div style={{padding:'1rem'}}>
@@ -184,38 +273,32 @@ export default function Admin() {
                     <MiniCard label="GMV" value={fmtBRL(selectedData.summary?.totalGmv ?? 0)} color="#1B3FE4"/>
                     <MiniCard label="Comissão" value={fmtBRL(selectedData.summary?.giseleEarn ?? 0)} color="#059669"/>
                   </div>
-                  {/* Weekly chart do afiliado selecionado */}
-                  {(selectedData.weeklyData?.length ?? 0) > 1 && (
-                    <>
-                      <div style={{fontSize:'10px',fontWeight:700,color:'#9CA3AF',letterSpacing:'0.08em',textTransform:'uppercase',marginBottom:'8px'}}>Evolução semanal — comissão</div>
-                      <ResponsiveContainer width="100%" height={120}>
-                        <AreaChart data={selectedData.weeklyData}>
-                          <XAxis dataKey="date" tickFormatter={fmtWeek} tick={{fontSize:9,fill:'#9CA3AF'}} axisLine={false} tickLine={false}/>
-                          <YAxis hide/>
-                          <Tooltip formatter={(v:number)=>[fmtBRL(v),'Comissão']} labelFormatter={l=>fmtDate(l)}/>
-                          <Area type="monotone" dataKey="giseleEarn" stroke={COLORS[ranking.findIndex(a=>a.login===selected)]} strokeWidth={2} fill={COLORS[ranking.findIndex(a=>a.login===selected)]+'15'} dot={{r:2,fill:COLORS[ranking.findIndex(a=>a.login===selected)],strokeWidth:0}}/>
-                        </AreaChart>
-                      </ResponsiveContainer>
-                    </>
-                  )}
-                  {/* Top 5 creators */}
-                  {(selectedData.leads?.length ?? 0) > 0 && (
-                    <>
-                      <div style={{fontSize:'10px',fontWeight:700,color:'#9CA3AF',letterSpacing:'0.08em',textTransform:'uppercase',marginBottom:'8px',marginTop:'12px'}}>Top creators</div>
-                      {selectedData.leads.filter((l:any)=>l.gmv>0).slice(0,5).map((l:any, i:number) => (
-                        <div key={l.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'6px 0',borderBottom:i<4?'1px solid #F3F4F6':'none'}}>
-                          <span style={{fontSize:'12px',color:'#6B6B8A'}}>{l.handle || l.nome || '—'}</span>
-                          <span style={{fontSize:'12px',fontWeight:700,color:'#0D0D1A'}}>{fmtBRL(l.gmv)}</span>
+                  {(selectedData.leads?.filter((l:any)=>l.gmv>0).length ?? 0) > 0 ? (
+                    selectedData.leads.filter((l:any)=>l.gmv>0).slice(0,8).map((l:any,i:number,arr:any[]) => (
+                      <div key={l.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',
+                        padding:'7px 0',borderBottom:i<arr.length-1?'1px solid #F3F4F6':'none'}}>
+                        <div>
+                          <div style={{fontSize:'12px',fontWeight:600,color:'#0D0D1A'}}>{l.nome || l.handle || '—'}</div>
+                          <div style={{fontSize:'10px',color:'#9CA3AF'}}>{l.handle}</div>
                         </div>
-                      ))}
-                    </>
+                        <div style={{textAlign:'right'}}>
+                          <div style={{fontSize:'12px',fontWeight:700,color:'#0D0D1A'}}>{fmtBRL(l.gmv)}</div>
+                          <div style={{fontSize:'10px',color:'#059669'}}>{fmtBRL(l.comissao)}</div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div style={{textAlign:'center',padding:'1rem',color:'#9CA3AF',fontSize:'12px'}}>
+                      Sem GMV registrado ainda
+                    </div>
                   )}
                 </div>
               </div>
             ) : (
-              <div style={{background:'white',borderRadius:'14px',border:'1px solid #E5E7EB',height:'100%',minHeight:'300px',display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:'8px'}}>
+              <div style={{background:'white',borderRadius:'14px',border:'1px solid #E5E7EB',minHeight:'300px',
+                display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:'8px'}}>
                 <div style={{fontSize:'1.5rem'}}>👆</div>
-                <div style={{fontSize:'13px',color:'#9CA3AF',fontWeight:600}}>Clique em um afiliado para ver o detalhe</div>
+                <div style={{fontSize:'13px',color:'#9CA3AF',fontWeight:600}}>Clique num afiliado para ver o detalhe</div>
               </div>
             )}
           </div>
