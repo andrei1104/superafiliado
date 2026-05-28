@@ -28,7 +28,7 @@ const fmtWeek = (iso:string) => { const d = new Date(iso); return `${d.getDate()
 export default function Dashboard() {
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
-  const [data, setData] = useState<{summary:Summary;leads:Lead[];byDay:DayPoint[];weeklyData:WeekPoint[]}|null>(null)
+  const [data, setData] = useState<{summary:Summary;leads:Lead[];byDay:DayPoint[];weeklyData:WeekPoint[];weeklyDataByCreator:Record<string,WeekPoint[]>}|null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [filter, setFilter] = useState<'all'|'inside'|'other'>('all')
