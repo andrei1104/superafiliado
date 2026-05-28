@@ -57,8 +57,8 @@ export default function Dashboard() {
   const { summary:s, leads, byDay, weeklyData, weeklyDataByCreator } = data
   const filtered = leads.filter(l => filter==='all' ? true : filter==='inside' ? INSIDE.has(l.status) : !INSIDE.has(l.status))
 
-  const chartLabels: Record<string,string> = { gmv:'GMV dos creators', comissao:'Comissão TikTok', giseleEarn:'Sua comissão' }
-  const chartColors: Record<string,string> = { gmv:'#1B3FE4', comissao:'#7C3AED', giseleEarn:'#059669' }
+  const chartLabels: Record<string,string> = { gmv:'GMV dos creators', giseleEarn:'Sua comissão' }
+  const chartColors: Record<string,string> = { gmv:'#1B3FE4', giseleEarn:'#059669' }
 
   return (
     <div style={{background:'#F7F8FF',minHeight:'100vh',fontFamily:"'Inter',sans-serif"}}>
@@ -129,11 +129,8 @@ export default function Dashboard() {
               <div style={{fontSize:'1.75rem',fontWeight:800,color:'#0D0D1A',letterSpacing:'-0.02em'}}>{fmtBRL(s.totalGmv)}</div>
             </div>
             <div>
-              <div style={{fontSize:'10px',fontWeight:700,color:'#9CA3AF',letterSpacing:'0.1em',textTransform:'uppercase',marginBottom:'4px'}}>Cálculo da sua comissão</div>
-              <div style={{fontSize:'12px',color:'#6B6B8A',lineHeight:1.8}}>
-                Comissão estimada (planilha): <strong style={{color:'#0D0D1A'}}>{fmtBRL(s.totalCom)}</strong><br/>
-                {fmtBRL(s.totalCom)} × 10% (Amplify) × 20% = <strong style={{color:'#059669'}}>{fmtBRL(s.giseleEarn)}</strong>
-              </div>
+              <div style={{fontSize:'10px',fontWeight:700,color:'#9CA3AF',letterSpacing:'0.1em',textTransform:'uppercase',marginBottom:'4px'}}>Sua comissão estimada</div>
+              <div style={{fontSize:'1.75rem',fontWeight:800,color:'#059669',letterSpacing:'-0.02em'}}>{fmtBRL(s.giseleEarn)}</div>
             </div>
           </div>
         </div>
@@ -146,7 +143,7 @@ export default function Dashboard() {
                 {selectedCreator ? `Evolução — ${selectedCreator.nome || selectedCreator.handle}` : 'Evolução semanal'}
               </div>
               <div style={{display:'flex',gap:'6px'}}>
-                {(['giseleEarn','gmv','comissao'] as const).map(k => (
+                {(['giseleEarn','gmv'] as const).map(k => (
                   <button key={k} onClick={()=>setActiveChart(k)}
                     style={{fontSize:'11px',fontWeight:700,padding:'4px 10px',borderRadius:'100px',border:'none',cursor:'pointer',
                       background:activeChart===k ? chartColors[k] : '#F3F4F6',
